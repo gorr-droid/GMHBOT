@@ -7,7 +7,7 @@ const CONFIG = {
     WELCOME_CHANNEL_ID: process.env.WELCOME_CHANNEL_ID || 'YOUR_WELCOME_CHANNEL_ID',
     // AUTO-NUKE CONFIGURATION
     NUKE_CHANNEL_ID: '1533093897277014157',
-    NUKE_INTERVAL_HOURS: 24,
+    NUKE_INTERVAL_HOURS: 24, // Set to 24 hours
     NUKE_LOGO_URL: 'Gemini_Generated_Image_6e1fjf6e1fjf6e1f-removebg-preview.png',
     NUKE_BANNER_URL: 'Gemini_Generated_Image_6e1fjf6e1fjf6e1f-removebg-preview.png'
 };
@@ -43,7 +43,7 @@ client.once('ready', async () => {
         }
     }
 
-    // Set up Auto-Nuke Timer
+    // Set up Auto-Nuke Timer (24 Hours)
     if (CONFIG.NUKE_CHANNEL_ID) {
         const intervalMs = CONFIG.NUKE_INTERVAL_HOURS * 60 * 60 * 1000;
         setInterval(() => {
@@ -86,11 +86,11 @@ async function nukeChannel(channelId) {
 
         const position = channel.position;
         const newChannel = await channel.clone({
-            reason: 'Automated channel nuke'
+            reason: 'Automated/Manual channel nuke'
         });
 
         await newChannel.setPosition(position);
-        await channel.delete('Automated channel nuke');
+        await channel.delete('Automated/Manual channel nuke');
 
         const embed = new EmbedBuilder()
             .setColor('#00E5FF')
@@ -100,7 +100,7 @@ async function nukeChannel(channelId) {
             })
             .setTitle('🧹 Chat Nuked')
             .setDescription(
-                'This channel has been automatically cleared to keep things organized and clean.\n\n' +
+                'This channel has been cleared to keep things organized and clean.\n\n' +
                 'Please continue your discussions here, and remember to follow the **Rules**.'
             )
             .setFooter({ 
@@ -264,6 +264,18 @@ client.on('messageCreate', async (message) => {
 
     if (command === '!ping') {
         return message.reply('🏓 Pong! Bot is online and working.');
+    }
+
+    // Direct Manual Nuke Command
+    if (command === '!nuke') {
+        if (!message.member.permissions.has('Administrator')) {
+            return message.reply('❌ You need Administrator permissions to use this command.');
+        }
+
+        // Target either the mentioned channel or the current channel
+        const targetChannel = message.mentions.channels.first() || message.channel;
+        
+        return nukeChannel(targetChannel.id);
     }
 
     if (command === '!sendwelcome') {
