@@ -3,8 +3,13 @@ const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder
 // Bot Configuration
 const CONFIG = {
     TOKEN: process.env.BOT_TOKEN,
-    CUSTOMER_ROLE_ID: process.env.CUSTOMER_ROLE_ID || 'YOUR_CUSTOMER_ROLE_ID',    // Replace with your Discord Customer Role ID or set via Railway Environment Variables
-    WELCOME_CHANNEL_ID: process.env.WELCOME_CHANNEL_ID || 'YOUR_WELCOME_CHANNEL_ID' // Replace with your Discord Welcome Channel ID or set via Railway Environment Variables
+    CUSTOMER_ROLE_ID: process.env.CUSTOMER_ROLE_ID || 'YOUR_CUSTOMER_ROLE_ID',    
+    WELCOME_CHANNEL_ID: process.env.WELCOME_CHANNEL_ID || 'YOUR_WELCOME_CHANNEL_ID',
+    // AUTO-NUKE CONFIGURATION
+    NUKE_CHANNEL_ID: '1533093897277014157',
+    NUKE_INTERVAL_HOURS: 24,
+    NUKE_LOGO_URL: 'Gemini_Generated_Image_6e1fjf6e1fjf6e1f-removebg-preview.png',
+    NUKE_BANNER_URL: 'Gemini_Generated_Image_6e1fjf6e1fjf6e1f-removebg-preview.png'
 };
 
 const client = new Client({
@@ -19,9 +24,9 @@ const client = new Client({
 
 // Cache to store invite counts & track who invited whom
 const guildInvites = new Map();
-const memberInviters = new Map(); // Tracks memberId -> inviterId for deduction on leave
+const memberInviters = new Map(); 
 
-// Bot Online Status & Cache Invites
+// Bot Online Status, Cache Invites & Start Timers
 client.once('ready', async () => {
     console.log('=========================================');
     console.log(`[ONLINE] Logged in as: ${client.user.tag}`);
@@ -37,6 +42,15 @@ client.once('ready', async () => {
             console.log(`Could not cache invites for guild ${guild.name}. Ensure bot has 'Manage Server' permission.`);
         }
     }
+
+    // Set up Auto-Nuke Timer
+    if (CONFIG.NUKE_CHANNEL_ID) {
+        const intervalMs = CONFIG.NUKE_INTERVAL_HOURS * 60 * 60 * 1000;
+        setInterval(() => {
+            nukeChannel(CONFIG.NUKE_CHANNEL_ID);
+        }, intervalMs);
+        console.log(`[AUTO-NUKE] Timer configured to run every ${CONFIG.NUKE_INTERVAL_HOURS} hours.`);
+    }
 });
 
 // Cache new invites when created
@@ -46,13 +60,12 @@ client.on('inviteCreate', async (invite) => {
     guildInvites.set(invite.guild.id, invites);
 });
 
-// Helper function to calculate real active invites (subtracting leaves)
+// Helper function to calculate real active invites
 async function getRealInvites(guild, userId) {
     const invites = await guild.invites.fetch();
     const userInvites = invites.filter(i => i.inviter && i.inviter.id === userId);
     let totalUses = userInvites.reduce((acc, inv) => acc + inv.uses, 0);
 
-    // Count how many people invited by this user have left
     let leaves = 0;
     for (const [memberId, inviterId] of memberInviters.entries()) {
         if (inviterId === userId) {
@@ -65,7 +78,51 @@ async function getRealInvites(guild, userId) {
     return realCount < 0 ? 0 : realCount;
 }
 
-// Helper function to build the exact Welcome Message Payload
+// Helper function for Channel Nuking
+async function nukeChannel(channelId) {
+    try {
+        const channel = await client.channels.fetch(channelId);
+        if (!channel) return console.log('[AUTO-NUKE] Target channel not found!');
+
+        const position = channel.position;
+        const newChannel = await channel.clone({
+            reason: 'Automated channel nuke'
+        });
+
+        await newChannel.setPosition(position);
+        await channel.delete('Automated channel nuke');
+
+        const embed = new EmbedBuilder()
+            .setColor('#00E5FF')
+            .setAuthor({ 
+                name: newChannel.guild.name, 
+                iconURL: CONFIG.NUKE_LOGO_URL.startsWith('http') ? CONFIG.NUKE_LOGO_URL : newChannel.guild.iconURL() 
+            })
+            .setTitle('🧹 Chat Nuked')
+            .setDescription(
+                'This channel has been automatically cleared to keep things organized and clean.\n\n' +
+                'Please continue your discussions here, and remember to follow the **Rules**.'
+            )
+            .setFooter({ 
+                text: `Auto-nuke runs every ${CONFIG.NUKE_INTERVAL_HOURS}h`
+            })
+            .setTimestamp();
+
+        if (CONFIG.NUKE_LOGO_URL.startsWith('http')) {
+            embed.setThumbnail(CONFIG.NUKE_LOGO_URL);
+        }
+        if (CONFIG.NUKE_BANNER_URL.startsWith('http')) {
+            embed.setImage(CONFIG.NUKE_BANNER_URL);
+        }
+
+        await newChannel.send({ embeds: [embed] });
+        console.log(`[AUTO-NUKE] Successfully nuked and recreated channel: ${newChannel.name}`);
+    } catch (error) {
+        console.error('[AUTO-NUKE] Error executing channel nuke:', error);
+    }
+}
+
+// Helper function to build Welcome Payload
 function buildWelcomePayload(member) {
     const welcomeEmbed = new EmbedBuilder()
         .setColor('#FF0000')
@@ -114,7 +171,7 @@ function buildWelcomePayload(member) {
     return { embeds: [welcomeEmbed], components: [buttons] };
 }
 
-// Helper function to send welcome message (tries DM first, falls back to welcome channel)
+// Helper function to send welcome message
 async function sendWelcomeToMember(member) {
     const payload = buildWelcomePayload(member);
     try {
@@ -142,7 +199,6 @@ client.on('guildMemberAdd', async (member) => {
             const usedInvite = newInvites.find(inv => cachedInvites.has(inv.code) && cachedInvites.get(inv.code) < inv.uses);
             if (usedInvite) {
                 inviter = usedInvite.inviter;
-                // Store who invited this member
                 memberInviters.set(member.id, inviter.id);
             }
         }
@@ -155,7 +211,6 @@ client.on('guildMemberAdd', async (member) => {
         console.error('Error tracking invites:', err);
     }
 
-    // Process Invite Milestone (10 Active Invites)
     if (inviter) {
         try {
             const realCount = await getRealInvites(member.guild, inviter.id);
@@ -188,7 +243,6 @@ client.on('guildMemberAdd', async (member) => {
         }
     }
 
-    // Send Welcome Message Automatically
     try {
         await sendWelcomeToMember(member);
     } catch (err) {
@@ -196,7 +250,7 @@ client.on('guildMemberAdd', async (member) => {
     }
 });
 
-// 2. Track Member Leaves (Auto-Deduct Invite Count)
+// 2. Track Member Leaves
 client.on('guildMemberRemove', async (member) => {
     console.log(`${member.user.tag} left the server. Invite tracking updated.`);
 });
@@ -208,12 +262,10 @@ client.on('messageCreate', async (message) => {
     const args = message.content.split(' ');
     const command = args[0].toLowerCase();
 
-    // Command: !ping
     if (command === '!ping') {
         return message.reply('🏓 Pong! Bot is online and working.');
     }
 
-    // Command: !sendwelcome @User - Manually send welcome payload to missed users
     if (command === '!sendwelcome') {
         if (!message.member.permissions.has('Administrator')) {
             return message.reply('❌ You need Administrator permissions to use this command.');
@@ -239,7 +291,6 @@ client.on('messageCreate', async (message) => {
         }
     }
 
-    // Command: !invites (@User) - Check real invite count
     if (command === '!invites') {
         const targetUser = message.mentions.users.first() || message.author;
         try {
@@ -250,7 +301,6 @@ client.on('messageCreate', async (message) => {
         }
     }
 
-    // Command: !pinguser @User [optional note]
     if (command === '!pinguser') {
         const targetUser = message.mentions.users.first();
         
@@ -264,7 +314,6 @@ client.on('messageCreate', async (message) => {
         return message.channel.send(`🔔 Hey ${targetUser}! You were pinged by ${message.author}.${noteText}`);
     }
 
-    // Command: !deliver @User KEY-1234
     if (command === '!deliver') {
         if (!message.member.permissions.has('Administrator')) {
             return message.reply('❌ You need Administrator permissions to use this command.');
@@ -305,5 +354,5 @@ client.on('messageCreate', async (message) => {
     }
 });
 
-// Login using environment variable
+// Login
 client.login(CONFIG.TOKEN);
