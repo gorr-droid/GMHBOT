@@ -1,4 +1,5 @@
 const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, Collection } = require('discord.js');
+const { startMonitoring } = require('./status-monitor');
 
 // Bot Configuration
 const CONFIG = {
@@ -50,6 +51,14 @@ client.once('ready', async () => {
             nukeChannel(CONFIG.NUKE_CHANNEL_ID);
         }, intervalMs);
         console.log(`[AUTO-NUKE] Timer configured to run every ${CONFIG.NUKE_INTERVAL_HOURS} hours.`);
+    }
+
+    // Start Website Status Monitor
+    try {
+        startMonitoring(client);
+        console.log('[STATUS MONITOR] Website tracker initialized.');
+    } catch (err) {
+        console.error('[STATUS MONITOR ERROR] Failed to start:', err.message);
     }
 });
 
