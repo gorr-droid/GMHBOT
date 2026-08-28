@@ -1,5 +1,6 @@
 const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, Collection } = require('discord.js');
-const { startMonitoring } = require('./status-monitor');
+const { startMonitoring, getAllStatuses } = require('./status-monitor');
+const { initWorkingHours, sendShiftUpdate } = require('./working-hours');
 
 // Bot Configuration
 const CONFIG = {
@@ -59,6 +60,13 @@ client.once('ready', async () => {
         console.log('[STATUS MONITOR] Website tracker initialized.');
     } catch (err) {
         console.error('[STATUS MONITOR ERROR] Failed to start:', err.message);
+    }
+
+    // Start Working Hours Schedule (07:00 / 23:00 CEST)
+    try {
+        initWorkingHours(client);
+    } catch (err) {
+        console.error('[WORKING HOURS ERROR] Failed to initialize schedules:', err.message);
     }
 });
 
@@ -275,15 +283,61 @@ client.on('messageCreate', async (message) => {
         return message.reply('🏓 Pong! Bot is online and working.');
     }
 
+    // Shift Hours Manual Override Command
+    if (command === '!shift') {
+        if (!message.member.permissions.has('ManageMessages')) {
+            return message.reply('❌ You need **Manage Messages** permission to change working hours.');
+        }
+
+        const action = args[1]?.toLowerCase();
+        if (action === 'on') {
+            await sendShiftUpdate(client, true);
+            return message.reply('✅ Support hours manually updated to **ONLINE**.');
+        } else if (action === 'off') {
+            await sendShiftUpdate(client, false);
+            return message.reply('✅ Support hours manually updated to **OFFLINE**.');
+        } else {
+            return message.reply('⚠️ **Usage:** `!shift on` or `!shift off`');
+        }
+    }
+
+    // Live Product Overview Command
+    if (command === '!status') {
+        const loadingMsg = await message.reply('🔄 Scraping live product status from website...');
+        try {
+            const products = await getAllStatuses();
+            if (!products || products.length === 0) {
+                return loadingMsg.edit('❌ Unable to fetch website statuses. Check Railway logs.');
+            }
+
+            const embed = new EmbedBuilder()
+                .setTitle('🟢 Live Tool Status Overview')
+                .setURL('https://status.gandyhub.lol/')
+                .setColor('#00E5FF')
+                .setTimestamp();
+
+            const formatted = products.map(p => {
+                let emoji = '🟢';
+                if (['UPDATING', 'OFFLINE'].includes(p.status)) emoji = '🔴';
+                if (['RISKY', 'TESTING'].includes(p.status)) emoji = '🟡';
+                return `${emoji} **${p.name}**: \`${p.status}\``;
+            }).join('\n');
+
+            embed.setDescription(formatted);
+            await loadingMsg.edit({ content: null, embeds: [embed] });
+        } catch (err) {
+            console.error('Error executing !status command:', err);
+            await loadingMsg.edit('❌ An error occurred while fetching statuses.');
+        }
+    }
+
     // Direct Manual Nuke Command
     if (command === '!nuke') {
         if (!message.member.permissions.has('Administrator')) {
             return message.reply('❌ You need Administrator permissions to use this command.');
         }
 
-        // Target either the mentioned channel or the current channel
         const targetChannel = message.mentions.channels.first() || message.channel;
-        
         return nukeChannel(targetChannel.id);
     }
 
