@@ -355,33 +355,45 @@ client.on('messageCreate', async (message) => {
         }
     }
 
-    // Live Product Overview Command
+    // Live Product Overview Command (Chunked to support 50+ tools without hitting limits)
     if (command === '!status') {
-        const loadingMsg = await message.reply('🔄 Scraping live product status from website...');
+        const loadingMsg = await message.reply('🔄 Scraping live product statuses from **gmh-shop.com**...');
         try {
             const products = await getAllStatuses();
             if (!products || products.length === 0) {
-                return loadingMsg.edit('❌ Unable to fetch website statuses. Check Railway logs.');
+                return loadingMsg.edit('❌ Unable to retrieve statuses. Check Railway/Render logs.');
             }
 
-            const embed = new EmbedBuilder()
-                .setTitle('🟢 Live Tool Status Overview')
-                .setURL('https://status.gandyhub.lol/')
-                .setColor('#00E5FF')
-                .setTimestamp();
+            const chunkSize = 20;
+            const embeds = [];
 
-            const formatted = products.map(p => {
-                let emoji = '🟢';
-                if (['UPDATING', 'OFFLINE'].includes(p.status)) emoji = '🔴';
-                if (['RISKY', 'TESTING'].includes(p.status)) emoji = '🟡';
-                return `${emoji} **${p.name}**: \`${p.status}\``;
-            }).join('\n');
+            for (let i = 0; i < products.length; i += chunkSize) {
+                const chunk = products.slice(i, i + chunkSize);
+                const pageNum = Math.floor(i / chunkSize) + 1;
+                const totalPages = Math.ceil(products.length / chunkSize);
 
-            embed.setDescription(formatted);
-            await loadingMsg.edit({ content: null, embeds: [embed] });
+                const formattedList = chunk.map(p => {
+                    let emoji = '🟢';
+                    if (['UPDATING', 'OFFLINE'].includes(p.status)) emoji = '🔴';
+                    if (['RISKY', 'TESTING'].includes(p.status)) emoji = '🟡';
+                    return `${emoji} **${p.name}** ➔ \`${p.status}\``;
+                }).join('\n');
+
+                const embed = new EmbedBuilder()
+                    .setTitle(totalPages > 1 ? `🛡️ GMH-SHOP Live Status (Page ${pageNum}/${totalPages})` : '🛡️ GMH-SHOP Live Status')
+                    .setURL('https://gmh-shop.com/status')
+                    .setColor(0x00E5FF)
+                    .setDescription(formattedList)
+                    .setFooter({ text: `Total Tools: ${products.length} • Updates every 60s` })
+                    .setTimestamp();
+
+                embeds.push(embed);
+            }
+
+            await loadingMsg.edit({ content: null, embeds: embeds.slice(0, 10) });
         } catch (err) {
             console.error('Error executing !status command:', err);
-            await loadingMsg.edit('❌ An error occurred while fetching statuses.');
+            await loadingMsg.edit('❌ An error occurred while formatting statuses.');
         }
     }
 
@@ -654,14 +666,12 @@ client.on('interactionCreate', async (interaction) => {
                             .setTimestamp();
 
                         answers.forEach((entry, idx) => {
-                            // Display full descriptive question title and question context
                             reviewEmbed.addFields({
                                 name: `Q${idx + 1}: ${entry.title}`,
                                 value: `*${entry.question.replace(/\*\*Question \d\/\d:\*\*\s*/, '')}*\n**Answer:** ${entry.answer.length > 950 ? entry.answer.slice(0, 950) + '...' : entry.answer}`
                             });
                         });
 
-                        // Add Interactive Buttons for Staff to Accept & Open Interview or Reject
                         const reviewActionRow = new ActionRowBuilder().addComponents(
                             new ButtonBuilder()
                                 .setCustomId(`accept_app_${user.id}`)
@@ -713,7 +723,6 @@ client.on('interactionCreate', async (interaction) => {
             const sanitizedName = applicant ? applicant.username.toLowerCase().replace(/[^a-z0-9]/g, '') : applicantId;
             const interviewChannelName = `interview-${sanitizedName}`;
 
-            // Check if interview room already exists
             const existingInterview = guild.channels.cache.find(c => c.name === interviewChannelName);
             if (existingInterview) {
                 return interaction.editReply({ content: `An interview channel already exists for this applicant: ${existingInterview}` });
@@ -761,7 +770,6 @@ client.on('interactionCreate', async (interaction) => {
                 ]
             });
 
-            // Update log message to show it was accepted by staff member
             const originalEmbed = EmbedBuilder.from(interaction.message.embeds[0])
                 .setColor(0x00FF00)
                 .setFooter({ text: `Accepted by ${interaction.user.tag} • Interview Room Created` });
@@ -776,7 +784,6 @@ client.on('interactionCreate', async (interaction) => {
 
             await interaction.message.edit({ embeds: [originalEmbed], components: [disabledRow] });
 
-            // Post welcome message inside the new interview channel
             const interviewEmbed = new EmbedBuilder()
                 .setTitle('🤝 Staff Candidate Interview')
                 .setDescription(
