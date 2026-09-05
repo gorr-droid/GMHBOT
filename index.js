@@ -19,7 +19,7 @@ const CONFIG = {
     WELCOME_CHANNEL_ID: process.env.WELCOME_CHANNEL_ID || 'YOUR_WELCOME_CHANNEL_ID',
     // AUTO-NUKE CONFIGURATION
     NUKE_CHANNEL_ID: '1533093897277014157',
-    NUKE_INTERVAL_HOURS: 24, // Set to 24 hours
+    NUKE_INTERVAL_HOURS: 24,
     NUKE_LOGO_URL: 'Gemini_Generated_Image_6e1fjf6e1fjf6e1f-removebg-preview.png',
     NUKE_BANNER_URL: 'Gemini_Generated_Image_6e1fjf6e1fjf6e1f-removebg-preview.png',
     // STAFF APPLICATION CONFIGURATION
@@ -42,14 +42,44 @@ const client = new Client({
 const guildInvites = new Map();
 const memberInviters = new Map(); 
 
-// Refined Questionnaire (No key dispensing for lower ranks)
+// Individual Questions (Separated & Scored Individually)
 const APP_QUESTIONS = [
-    "**Question 1/6 (Availability & Setup):** What is your age, timezone, and daily active hours? Do you have your own PC to help test or guide users through issues?",
-    "**Question 2/6 (Basic Windows Conflicts):** A user says their downloaded file deletes itself immediately or gets blocked from opening. What exact Windows Defender/antivirus steps or exclusions do you guide them through?",
-    "**Question 3/6 (System & Tool Requirements):** How familiar are you with common PC gaming errors (e.g., BIOS virtualization, TPM, Visual C++ runtimes, DirectX)? Walk through how you verify if a user's PC meets tool requirements.",
-    "**Question 4/6 (Chat Triage & De-escalation):** A frustrated customer starts ranting in general chat calling GMH slow or claiming their order didn't arrive. How do you handle them publicly, and how do you move them cleanly into a support ticket?",
-    "**Question 5/6 (Escalation Protocol):** Lower-rank staff do NOT generate or deliver license keys or process refunds. If a user has a payment, delivery, or key issue, what exact details do you collect from them before tagging higher-ups in internal notes?",
-    "**Question 6/6 (Compensation & Integrity):** Are you looking for free tool access keys, weekly payouts, or a mix? Also, if you catch a fellow staff member giving special treatment or leaking private info to friends, what do you do?"
+    {
+        title: "Age & Hardware",
+        question: "**Question 1/9:** How old are you, and do you own a Windows PC that you can use while providing support?"
+    },
+    {
+        title: "Timezone & Active Hours",
+        question: "**Question 2/9:** What is your timezone/country, and what specific hours of the day are you active?"
+    },
+    {
+        title: "Past Experience",
+        question: "**Question 3/9:** What past experience do you have moderating Discord servers or managing support tickets?"
+    },
+    {
+        title: "Windows Antivirus & Defender",
+        question: "**Question 4/9:** A buyer downloads a file and says it instantly deletes itself or won't open. What exact steps or antivirus exclusions do you guide them through?"
+    },
+    {
+        title: "PC Gaming Requirements",
+        question: "**Question 5/9:** A tool fails to run due to missing PC prerequisites. Which common runtimes, DirectX components, or BIOS settings (e.g. Virtualization/TPM) do you check?"
+    },
+    {
+        title: "Handling Hostile Chat",
+        question: "**Question 6/9:** A user starts complaining in public chat calling the server a scam because their key or support is taking time. How do you handle this publicly, and how do you direct them into tickets?"
+    },
+    {
+        title: "Payment & License Policy",
+        question: "**Question 7/9:** Lower staff do NOT dispense keys or process refunds. If a user demands a replacement key or refund, what exact order information do you gather before escalating to senior staff?"
+    },
+    {
+        title: "Staff Favoritism",
+        question: "**Question 8/9:** If a friend of yours in the server breaks server rules or asks you for free access/leaks, how do you respond?"
+    },
+    {
+        title: "Compensation Choice",
+        question: "**Question 9/9:** Are you looking to be compensated through free tool access keys, weekly payouts, or a mixture of both?"
+    }
 ];
 
 // Bot Online Status, Cache Invites & Start Timers
@@ -490,10 +520,11 @@ client.on('messageCreate', async (message) => {
     }
 });
 
-// 4. Staff Application Intake Interaction Handler
+// 4. Staff Application Intake & Review Interactions
 client.on('interactionCreate', async (interaction) => {
     if (!interaction.isButton()) return;
 
+    // A. Start Application Button
     if (interaction.customId === 'start_staff_application') {
         const guild = interaction.guild;
         const user = interaction.user;
@@ -501,7 +532,6 @@ client.on('interactionCreate', async (interaction) => {
         const sanitizedUsername = user.username.toLowerCase().replace(/[^a-z0-9]/g, '') || 'applicant';
         const channelName = `app-${sanitizedUsername}`;
 
-        // Check if application channel already exists
         const existingChannel = guild.channels.cache.find(c => c.name === channelName);
         if (existingChannel) {
             return interaction.reply({
@@ -531,7 +561,7 @@ client.on('interactionCreate', async (interaction) => {
 
             const overwrites = [
                 {
-                    id: guild.id, // @everyone
+                    id: guild.id,
                     deny: [PermissionsBitField.Flags.ViewChannel]
                 },
                 {
@@ -581,7 +611,7 @@ client.on('interactionCreate', async (interaction) => {
 
             const promptEmbed = new EmbedBuilder()
                 .setTitle(`Staff Application: ${user.tag}`)
-                .setDescription("Answer each question directly in this channel. You have 30 minutes total.\n\n" + APP_QUESTIONS[questionIndex])
+                .setDescription("Please answer each question directly in this channel. Take your time to write clear answers.\n\n" + APP_QUESTIONS[questionIndex].question)
                 .setColor(0x5865F2);
 
             await appChannel.send({ content: `${user}`, embeds: [promptEmbed] });
@@ -592,12 +622,16 @@ client.on('interactionCreate', async (interaction) => {
             });
 
             collector.on('collect', async (msg) => {
-                answers.push({ question: APP_QUESTIONS[questionIndex], answer: msg.content });
+                answers.push({
+                    title: APP_QUESTIONS[questionIndex].title,
+                    question: APP_QUESTIONS[questionIndex].question,
+                    answer: msg.content.trim() || 'No response provided.'
+                });
                 questionIndex++;
 
                 if (questionIndex < APP_QUESTIONS.length) {
                     const nextEmbed = new EmbedBuilder()
-                        .setDescription(APP_QUESTIONS[questionIndex])
+                        .setDescription(APP_QUESTIONS[questionIndex].question)
                         .setColor(0x5865F2);
                     await appChannel.send({ embeds: [nextEmbed] });
                 } else {
@@ -615,17 +649,33 @@ client.on('interactionCreate', async (interaction) => {
                     if (reviewChannel) {
                         const reviewEmbed = new EmbedBuilder()
                             .setTitle(`New Staff Application: ${user.tag} (${user.id})`)
-                            .setColor(0x00FF7F)
+                            .setColor(0x00E5FF)
+                            .setThumbnail(user.displayAvatarURL())
                             .setTimestamp();
 
                         answers.forEach((entry, idx) => {
+                            // Display full descriptive question title and question context
                             reviewEmbed.addFields({
-                                name: `Q${idx + 1}`,
-                                value: entry.answer.length > 1024 ? entry.answer.slice(0, 1020) + '...' : entry.answer
+                                name: `Q${idx + 1}: ${entry.title}`,
+                                value: `*${entry.question.replace(/\*\*Question \d\/\d:\*\*\s*/, '')}*\n**Answer:** ${entry.answer.length > 950 ? entry.answer.slice(0, 950) + '...' : entry.answer}`
                             });
                         });
 
-                        await reviewChannel.send({ embeds: [reviewEmbed] });
+                        // Add Interactive Buttons for Staff to Accept & Open Interview or Reject
+                        const reviewActionRow = new ActionRowBuilder().addComponents(
+                            new ButtonBuilder()
+                                .setCustomId(`accept_app_${user.id}`)
+                                .setLabel('Accept & Open Interview')
+                                .setStyle(ButtonStyle.Success)
+                                .setEmoji('💬'),
+                            new ButtonBuilder()
+                                .setCustomId(`reject_app_${user.id}`)
+                                .setLabel('Reject')
+                                .setStyle(ButtonStyle.Danger)
+                                .setEmoji('❌')
+                        );
+
+                        await reviewChannel.send({ embeds: [reviewEmbed], components: [reviewActionRow] });
                     }
 
                     setTimeout(async () => {
@@ -645,6 +695,131 @@ client.on('interactionCreate', async (interaction) => {
                 content: `❌ Error creating channel: \`${err.message}\``
             });
         }
+    }
+
+    // B. Accept & Open Dedicated Interview Room
+    if (interaction.customId.startsWith('accept_app_')) {
+        const applicantId = interaction.customId.replace('accept_app_', '');
+        const guild = interaction.guild;
+
+        if (!interaction.member.permissions.has(PermissionsBitField.Flags.ManageChannels)) {
+            return interaction.reply({ content: '❌ You need Manage Channels permission to accept applications.', ephemeral: true });
+        }
+
+        await interaction.deferReply({ ephemeral: true });
+
+        try {
+            const applicant = await client.users.fetch(applicantId).catch(() => null);
+            const sanitizedName = applicant ? applicant.username.toLowerCase().replace(/[^a-z0-9]/g, '') : applicantId;
+            const interviewChannelName = `interview-${sanitizedName}`;
+
+            // Check if interview room already exists
+            const existingInterview = guild.channels.cache.find(c => c.name === interviewChannelName);
+            if (existingInterview) {
+                return interaction.editReply({ content: `An interview channel already exists for this applicant: ${existingInterview}` });
+            }
+
+            let targetCategory = null;
+            if (CONFIG.APP_CATEGORY_ID && CONFIG.APP_CATEGORY_ID !== 'YOUR_APP_CATEGORY_ID') {
+                targetCategory = guild.channels.cache.get(CONFIG.APP_CATEGORY_ID);
+            }
+
+            const interviewChannel = await guild.channels.create({
+                name: interviewChannelName,
+                type: ChannelType.GuildText,
+                parent: targetCategory && targetCategory.type === ChannelType.GuildCategory ? targetCategory.id : null,
+                permissionOverwrites: [
+                    {
+                        id: guild.id,
+                        deny: [PermissionsBitField.Flags.ViewChannel]
+                    },
+                    {
+                        id: applicantId,
+                        allow: [
+                            PermissionsBitField.Flags.ViewChannel,
+                            PermissionsBitField.Flags.SendMessages,
+                            PermissionsBitField.Flags.ReadMessageHistory,
+                            PermissionsBitField.Flags.AttachFiles
+                        ]
+                    },
+                    {
+                        id: CONFIG.STAFF_ROLE_ID,
+                        allow: [
+                            PermissionsBitField.Flags.ViewChannel,
+                            PermissionsBitField.Flags.SendMessages,
+                            PermissionsBitField.Flags.ReadMessageHistory
+                        ]
+                    },
+                    {
+                        id: interaction.user.id,
+                        allow: [
+                            PermissionsBitField.Flags.ViewChannel,
+                            PermissionsBitField.Flags.SendMessages,
+                            PermissionsBitField.Flags.ReadMessageHistory
+                        ]
+                    }
+                ]
+            });
+
+            // Update log message to show it was accepted by staff member
+            const originalEmbed = EmbedBuilder.from(interaction.message.embeds[0])
+                .setColor(0x00FF00)
+                .setFooter({ text: `Accepted by ${interaction.user.tag} • Interview Room Created` });
+
+            const disabledRow = new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                    .setCustomId('accepted_done')
+                    .setLabel(`Interview Opened in #${interviewChannelName}`)
+                    .setStyle(ButtonStyle.Secondary)
+                    .setDisabled(true)
+            );
+
+            await interaction.message.edit({ embeds: [originalEmbed], components: [disabledRow] });
+
+            // Post welcome message inside the new interview channel
+            const interviewEmbed = new EmbedBuilder()
+                .setTitle('🤝 Staff Candidate Interview')
+                .setDescription(
+                    `Welcome <@${applicantId}>!\n\n` +
+                    `Your application was reviewed and approved for an interview by <@${interaction.user.id}>.\n\n` +
+                    `Use this private channel to discuss:\n` +
+                    `• Your weekly schedule & responsibilities\n` +
+                    `• Specific compensation choice (free tool keys vs weekly payout)\n` +
+                    `• Staff rules and onboarding instructions\n\n` +
+                    `Please wait for staff to message you here.`
+                )
+                .setColor(0x00FF00)
+                .setTimestamp();
+
+            await interviewChannel.send({ content: `<@${applicantId}> <@&${CONFIG.STAFF_ROLE_ID}>`, embeds: [interviewEmbed] });
+
+            await interaction.editReply({ content: `✅ Interview channel created: ${interviewChannel}` });
+
+        } catch (err) {
+            console.error('Error creating interview channel:', err);
+            await interaction.editReply({ content: `❌ Failed to create interview channel: \`${err.message}\`` });
+        }
+    }
+
+    // C. Reject Button
+    if (interaction.customId.startsWith('reject_app_')) {
+        if (!interaction.member.permissions.has(PermissionsBitField.Flags.ManageChannels)) {
+            return interaction.reply({ content: '❌ You need Manage Channels permission to reject applications.', ephemeral: true });
+        }
+
+        const originalEmbed = EmbedBuilder.from(interaction.message.embeds[0])
+            .setColor(0xFF0000)
+            .setFooter({ text: `Rejected by ${interaction.user.tag}` });
+
+        const disabledRow = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId('rejected_done')
+                .setLabel(`Rejected by ${interaction.user.username}`)
+                .setStyle(ButtonStyle.Danger)
+                .setDisabled(true)
+        );
+
+        await interaction.update({ embeds: [originalEmbed], components: [disabledRow] });
     }
 });
 
