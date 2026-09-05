@@ -5,11 +5,13 @@ const {
     ActionRowBuilder, 
     ButtonBuilder, 
     ButtonStyle, 
+    ModalBuilder,
+    TextInputBuilder,
+    TextInputStyle,
     Collection,
     PermissionsBitField,
     ChannelType 
 } = require('discord.js');
-const { startMonitoring, getAllStatuses } = require('./status-monitor');
 const { initWorkingHours, sendShiftUpdate } = require('./working-hours');
 
 // Bot Configuration
@@ -25,7 +27,9 @@ const CONFIG = {
     // STAFF APPLICATION CONFIGURATION
     STAFF_ROLE_ID: process.env.STAFF_ROLE_ID || '1533093844822790225',
     APP_CATEGORY_ID: process.env.APP_CATEGORY_ID || '1535740055623180388',
-    APP_LOG_CHANNEL_ID: process.env.APP_LOG_CHANNEL_ID || '1545741112868610068'
+    APP_LOG_CHANNEL_ID: process.env.APP_LOG_CHANNEL_ID || '1545741112868610068',
+    // SUPPORT TICKET CATEGORY
+    TICKET_CATEGORY_ID: process.env.TICKET_CATEGORY_ID || '1535740055623180388'
 };
 
 const client = new Client({
@@ -41,44 +45,17 @@ const client = new Client({
 const guildInvites = new Map();
 const memberInviters = new Map(); 
 
-// Individual Questions
+// 9-Question Staff Application Flow
 const APP_QUESTIONS = [
-    {
-        title: "Age & Hardware",
-        question: "**Question 1/9:** How old are you, and do you own a Windows PC that you can use while providing support?"
-    },
-    {
-        title: "Timezone & Active Hours",
-        question: "**Question 2/9:** What is your timezone/country, and what specific hours of the day are you active?"
-    },
-    {
-        title: "Past Experience",
-        question: "**Question 3/9:** What past experience do you have moderating Discord servers or managing support tickets?"
-    },
-    {
-        title: "Antivirus / Defender",
-        question: "**Question 4/9:** A buyer downloads a file and says it instantly deletes itself or won't open. What exact steps or antivirus exclusions do you guide them through?"
-    },
-    {
-        title: "PC Requirements",
-        question: "**Question 5/9:** A tool fails to run due to missing PC prerequisites. Which common runtimes, DirectX components, or BIOS settings (e.g. Virtualization/TPM) do you check?"
-    },
-    {
-        title: "Chat Triage",
-        question: "**Question 6/9:** A user starts complaining in public chat calling the server a scam because their key or support is taking time. How do you handle this publicly, and how do you direct them into tickets?"
-    },
-    {
-        title: "Escalation Policy",
-        question: "**Question 7/9:** Lower staff do NOT dispense keys or process refunds. If a user demands a replacement key or refund, what exact order information do you gather before escalating to senior staff?"
-    },
-    {
-        title: "Rules & Favoritism",
-        question: "**Question 8/9:** If a friend of yours in the server breaks server rules or asks you for free access/leaks, how do you respond?"
-    },
-    {
-        title: "Compensation",
-        question: "**Question 9/9:** Are you looking to be compensated through free tool access keys, weekly payouts, or a mixture of both?"
-    }
+    { title: "Age & Hardware", question: "**Question 1/9:** How old are you, and do you own a Windows PC that you can use while providing support?" },
+    { title: "Timezone & Active Hours", question: "**Question 2/9:** What is your timezone/country, and what specific hours of the day are you active?" },
+    { title: "Past Experience", question: "**Question 3/9:** What past experience do you have moderating Discord servers or managing support tickets?" },
+    { title: "Antivirus / Defender", question: "**Question 4/9:** A buyer downloads a file and says it instantly deletes itself or won't open. What exact steps or antivirus exclusions do you guide them through?" },
+    { title: "PC Requirements", question: "**Question 5/9:** A tool fails to run due to missing PC prerequisites. Which common runtimes, DirectX components, or BIOS settings (e.g. Virtualization/TPM) do you check?" },
+    { title: "Chat Triage", question: "**Question 6/9:** A user starts complaining in public chat calling the server a scam because their key or support is taking time. How do you handle this publicly, and how do you direct them into tickets?" },
+    { title: "Escalation Policy", question: "**Question 7/9:** Lower staff do NOT dispense keys or process refunds. If a user demands a replacement key or refund, what exact order information do you gather before escalating to senior staff?" },
+    { title: "Rules & Favoritism", question: "**Question 8/9:** If a friend of yours in the server breaks server rules or asks you for free access/leaks, how do you respond?" },
+    { title: "Compensation", question: "**Question 9/9:** Are you looking to be compensated through free tool access keys, weekly payouts, or a mixture of both?" }
 ];
 
 client.once('ready', async () => {
@@ -102,12 +79,6 @@ client.once('ready', async () => {
         setInterval(() => {
             nukeChannel(CONFIG.NUKE_CHANNEL_ID);
         }, intervalMs);
-    }
-
-    try {
-        startMonitoring(client);
-    } catch (err) {
-        console.error('[STATUS MONITOR ERROR]:', err.message);
     }
 
     try {
@@ -193,6 +164,7 @@ client.on('guildMemberAdd', async (member) => {
     } catch (err) {}
 });
 
+// Message Commands
 client.on('messageCreate', async (message) => {
     if (message.author.bot || !message.guild) return;
 
@@ -212,64 +184,6 @@ client.on('messageCreate', async (message) => {
             return message.reply('✅ Support hours set to **OFFLINE**.');
         }
         return message.reply('⚠️ Usage: `!shift on` or `!shift off`');
-    }
-
-    // Live Product Overview (Chunked + Auto-delete in 5 minutes)
-    if (command === '!status') {
-        const loadingMsg = await message.reply('🔄 Scraping live statuses from **gmh-shop.com**...');
-        try {
-            const products = await getAllStatuses();
-            if (!products || products.length === 0) {
-                const failMsg = await loadingMsg.edit('❌ Unable to retrieve statuses right now.');
-                setTimeout(() => {
-                    message.delete().catch(() => {});
-                    failMsg.delete().catch(() => {});
-                }, 300000);
-                return;
-            }
-
-            const chunkSize = 20;
-            const embeds = [];
-
-            for (let i = 0; i < products.length; i += chunkSize) {
-                const chunk = products.slice(i, i + chunkSize);
-                const pageNum = Math.floor(i / chunkSize) + 1;
-                const totalPages = Math.ceil(products.length / chunkSize);
-
-                const formattedList = chunk.map(p => {
-                    let emoji = '🟢';
-                    if (['UPDATING', 'OFFLINE'].includes(p.status)) emoji = '🔴';
-                    if (['RISKY', 'TESTING'].includes(p.status)) emoji = '🟡';
-                    return `${emoji} **${p.name}** ➔ \`${p.status}\``;
-                }).join('\n');
-
-                const embed = new EmbedBuilder()
-                    .setTitle(totalPages > 1 ? `🛡️ GMH-SHOP Live Status (${pageNum}/${totalPages})` : '🛡️ GMH-SHOP Live Status')
-                    .setURL('https://gmh-shop.com/status')
-                    .setColor(0x00E5FF)
-                    .setDescription(formattedList)
-                    .setFooter({ text: `Total Tools: ${products.length} • Auto-clears in 5m` })
-                    .setTimestamp();
-
-                embeds.push(embed);
-            }
-
-            const statusMsg = await loadingMsg.edit({ content: null, embeds: embeds.slice(0, 10) });
-
-            // Auto-delete both the trigger message and status response after 5 minutes (300,000 ms)
-            setTimeout(() => {
-                message.delete().catch(() => {});
-                statusMsg.delete().catch(() => {});
-            }, 300000);
-
-        } catch (err) {
-            console.error('Error executing !status:', err);
-            const errReply = await loadingMsg.edit('❌ Error formatting statuses.');
-            setTimeout(() => {
-                message.delete().catch(() => {});
-                errReply.delete().catch(() => {});
-            }, 300000);
-        }
     }
 
     if (command === '!nuke') {
@@ -310,6 +224,7 @@ client.on('messageCreate', async (message) => {
         }
     }
 
+    // Spawn Staff Application Panel
     if (command === '!spawn-apps') {
         if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) return;
 
@@ -338,12 +253,319 @@ client.on('messageCreate', async (message) => {
         await message.channel.send({ embeds: [recruitEmbed], components: [row] });
         await message.delete().catch(() => {});
     }
+
+    // Spawn GMH Ticket Hub
+    if (command === '!spawn-tickets') {
+        if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) return;
+
+        const ticketEmbed = new EmbedBuilder()
+            .setTitle('🛡️ GMH-SHOP • Customer Support Hub')
+            .setDescription(
+                "Need technical support, custom orders, or reseller access? Select the appropriate category below to open a direct channel with our staff team.\n\n" +
+                "**⚡ Support Guidelines**\n" +
+                "• **One Ticket per Issue:** Avoid opening duplicate tickets.\n" +
+                "• **No Passive Pings:** Submit your problem details immediately upon opening.\n" +
+                "• **Logs & Proof:** If reporting errors, attach full-screen screenshots and loader logs.\n\n" +
+                "**💳 Accepted Payment Options**\n" +
+                "• **Crypto:** BTC • LTC • USDT • ETH *(Instant auto-delivery on site)*\n" +
+                "• **Credit / Debit Cards:** Supported via site checkout\n" +
+                "• **Alternative:** PayPal F&F and Rewarble Gift Cards *(Supported through tickets)*\n\n" +
+                "Click a button below to launch your private ticket form."
+            )
+            .setColor(0x00E5FF)
+            .setFooter({ text: 'GameMarket Hub • Automated Support System' })
+            .setTimestamp();
+
+        const buttonRow = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId('ticket_general')
+                .setLabel('Tech Support')
+                .setStyle(ButtonStyle.Primary)
+                .setEmoji('🛠️'),
+            new ButtonBuilder()
+                .setCustomId('ticket_purchase')
+                .setLabel('Buy / Payment')
+                .setStyle(ButtonStyle.Success)
+                .setEmoji('🛒'),
+            new ButtonBuilder()
+                .setCustomId('ticket_resell')
+                .setLabel('Reseller Access')
+                .setStyle(ButtonStyle.Secondary)
+                .setEmoji('🤝'),
+            new ButtonBuilder()
+                .setCustomId('ticket_hwid')
+                .setLabel('HWID Reset')
+                .setStyle(ButtonStyle.Danger)
+                .setEmoji('🔄')
+        );
+
+        await message.channel.send({ embeds: [ticketEmbed], components: [buttonRow] });
+        await message.delete().catch(() => {});
+    }
 });
 
+// Interactions (Buttons, Modals, Support Tickets)
 client.on('interactionCreate', async (interaction) => {
-    if (!interaction.isButton()) return;
+    // -------------------------------------------------------------
+    // 1. TICKET BUTTONS -> POPUP MODALS
+    // -------------------------------------------------------------
+    if (interaction.isButton()) {
+        if (interaction.customId === 'ticket_general') {
+            const modal = new ModalBuilder()
+                .setCustomId('modal_ticket_general')
+                .setTitle('🛠️ GMH Technical Assistance');
 
-    if (interaction.customId === 'start_staff_application') {
+            modal.addComponents(
+                new ActionRowBuilder().addComponents(
+                    new TextInputBuilder()
+                        .setCustomId('general_tool')
+                        .setLabel('Which software/game is having issues?')
+                        .setStyle(TextInputStyle.Short)
+                        .setPlaceholder('e.g. Thunex BO7, Arc Raiders External...')
+                        .setRequired(true)
+                ),
+                new ActionRowBuilder().addComponents(
+                    new TextInputBuilder()
+                        .setCustomId('general_sys')
+                        .setLabel('Windows Build & Antivirus Status')
+                        .setStyle(TextInputStyle.Short)
+                        .setPlaceholder('e.g. Win 11 23H2 / Defender Disabled')
+                        .setRequired(true)
+                ),
+                new ActionRowBuilder().addComponents(
+                    new TextInputBuilder()
+                        .setCustomId('general_reason')
+                        .setLabel('Explain the issue or error code')
+                        .setStyle(TextInputStyle.Paragraph)
+                        .setPlaceholder('Describe exactly what happens when you run it...')
+                        .setRequired(true)
+                )
+            );
+            return await interaction.showModal(modal);
+        }
+
+        if (interaction.customId === 'ticket_purchase') {
+            const modal = new ModalBuilder()
+                .setCustomId('modal_ticket_purchase')
+                .setTitle('🛒 GMH Purchase & Invoicing');
+
+            modal.addComponents(
+                new ActionRowBuilder().addComponents(
+                    new TextInputBuilder()
+                        .setCustomId('purchase_item')
+                        .setLabel('Product & Duration')
+                        .setStyle(TextInputStyle.Short)
+                        .setPlaceholder('e.g. Raiko Apex (30 Days), Temp Spoofer (Day)')
+                        .setRequired(true)
+                ),
+                new ActionRowBuilder().addComponents(
+                    new TextInputBuilder()
+                        .setCustomId('purchase_method')
+                        .setLabel('Payment Method')
+                        .setStyle(TextInputStyle.Short)
+                        .setPlaceholder('PayPal F&F, Crypto, Rewarble...')
+                        .setRequired(true)
+                ),
+                new ActionRowBuilder().addComponents(
+                    new TextInputBuilder()
+                        .setCustomId('purchase_orderid')
+                        .setLabel('Order/Transaction ID (If already paid)')
+                        .setStyle(TextInputStyle.Short)
+                        .setPlaceholder('Leave blank if opening a new order')
+                        .setRequired(false)
+                )
+            );
+            return await interaction.showModal(modal);
+        }
+
+        if (interaction.customId === 'ticket_resell') {
+            const modal = new ModalBuilder()
+                .setCustomId('modal_ticket_resell')
+                .setTitle('🤝 GMH Reseller Application');
+
+            modal.addComponents(
+                new ActionRowBuilder().addComponents(
+                    new TextInputBuilder()
+                        .setCustomId('resell_products')
+                        .setLabel('Which tools are you looking to stock?')
+                        .setStyle(TextInputStyle.Paragraph)
+                        .setPlaceholder('List software titles...')
+                        .setRequired(true)
+                ),
+                new ActionRowBuilder().addComponents(
+                    new TextInputBuilder()
+                        .setCustomId('resell_platform')
+                        .setLabel('Storefront or Server Link')
+                        .setStyle(TextInputStyle.Short)
+                        .setPlaceholder('https://discord.gg/... or https://yourstore.com')
+                        .setRequired(true)
+                ),
+                new ActionRowBuilder().addComponents(
+                    new TextInputBuilder()
+                        .setCustomId('resell_volume')
+                        .setLabel('Estimated Weekly Sales Volume')
+                        .setStyle(TextInputStyle.Short)
+                        .setPlaceholder('e.g. 15-20 keys weekly')
+                        .setRequired(false)
+                )
+            );
+            return await interaction.showModal(modal);
+        }
+
+        if (interaction.customId === 'ticket_hwid') {
+            const modal = new ModalBuilder()
+                .setCustomId('modal_ticket_hwid')
+                .setTitle('🔄 GMH HWID Reset Request');
+
+            modal.addComponents(
+                new ActionRowBuilder().addComponents(
+                    new TextInputBuilder()
+                        .setCustomId('hwid_product')
+                        .setLabel('Tool Name')
+                        .setStyle(TextInputStyle.Short)
+                        .setPlaceholder('e.g. Ancient COD External')
+                        .setRequired(true)
+                ),
+                new ActionRowBuilder().addComponents(
+                    new TextInputBuilder()
+                        .setCustomId('hwid_key')
+                        .setLabel('Active License Key')
+                        .setStyle(TextInputStyle.Short)
+                        .setPlaceholder('Paste your full license key')
+                        .setRequired(true)
+                ),
+                new ActionRowBuilder().addComponents(
+                    new TextInputBuilder()
+                        .setCustomId('hwid_reason')
+                        .setLabel('Reason for Hardware Change')
+                        .setStyle(TextInputStyle.Paragraph)
+                        .setPlaceholder('e.g. Upgraded SSD/Motherboard, reinstalled OS...')
+                        .setRequired(true)
+                )
+            );
+            return await interaction.showModal(modal);
+        }
+
+        if (interaction.customId === 'close_ticket') {
+            await interaction.reply('🔒 Closing this ticket in 5 seconds...');
+            setTimeout(() => {
+                interaction.channel.delete().catch(() => {});
+            }, 5000);
+            return;
+        }
+    }
+
+    // -------------------------------------------------------------
+    // 2. MODAL SUBMISSIONS -> SPAWN PRIVATE TICKET ROOM
+    // -------------------------------------------------------------
+    if (interaction.isModalSubmit()) {
+        const guild = interaction.guild;
+        const user = interaction.user;
+
+        let ticketType = 'Ticket';
+        let channelPrefix = 'ticket';
+        let embedColor = 0x00E5FF;
+        const fields = [];
+
+        if (interaction.customId === 'modal_ticket_general') {
+            ticketType = 'Technical Support';
+            channelPrefix = 'tech';
+            embedColor = 0x5865F2;
+            fields.push(
+                { name: 'Software', value: interaction.fields.getTextInputValue('general_tool') || 'N/A', inline: true },
+                { name: 'OS & Defender', value: interaction.fields.getTextInputValue('general_sys') || 'N/A', inline: true },
+                { name: 'Issue Details', value: interaction.fields.getTextInputValue('general_reason') || 'N/A' }
+            );
+        } else if (interaction.customId === 'modal_ticket_purchase') {
+            ticketType = 'Purchase Order';
+            channelPrefix = 'buy';
+            embedColor = 0x2ECC71;
+            fields.push(
+                { name: 'Product', value: interaction.fields.getTextInputValue('purchase_item') || 'N/A', inline: true },
+                { name: 'Payment Method', value: interaction.fields.getTextInputValue('purchase_method') || 'N/A', inline: true },
+                { name: 'Order/TX ID', value: interaction.fields.getTextInputValue('purchase_orderid') || 'Not Provided' }
+            );
+        } else if (interaction.customId === 'modal_ticket_resell') {
+            ticketType = 'Reseller Inquiry';
+            channelPrefix = 'resell';
+            embedColor = 0x95A5A6;
+            fields.push(
+                { name: 'Products', value: interaction.fields.getTextInputValue('resell_products') || 'N/A' },
+                { name: 'Store Link', value: interaction.fields.getTextInputValue('resell_platform') || 'N/A', inline: true },
+                { name: 'Est. Volume', value: interaction.fields.getTextInputValue('resell_volume') || 'N/A', inline: true }
+            );
+        } else if (interaction.customId === 'modal_ticket_hwid') {
+            ticketType = 'HWID Reset';
+            channelPrefix = 'hwid';
+            embedColor = 0xE74C3C;
+            fields.push(
+                { name: 'Software', value: interaction.fields.getTextInputValue('hwid_product') || 'N/A', inline: true },
+                { name: 'License Key', value: `\`\`\`${interaction.fields.getTextInputValue('hwid_key') || 'N/A'}\`\`\`` },
+                { name: 'Reason', value: interaction.fields.getTextInputValue('hwid_reason') || 'N/A' }
+            );
+        }
+
+        await interaction.deferReply({ ephemeral: true });
+
+        try {
+            const sanitizedName = user.username.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 10) || 'user';
+            const channelName = `${channelPrefix}-${sanitizedName}`;
+
+            let targetCategory = null;
+            if (CONFIG.TICKET_CATEGORY_ID) {
+                targetCategory = guild.channels.cache.get(CONFIG.TICKET_CATEGORY_ID) || await guild.channels.fetch(CONFIG.TICKET_CATEGORY_ID).catch(() => null);
+            }
+
+            const ticketChannel = await guild.channels.create({
+                name: channelName,
+                type: ChannelType.GuildText,
+                parent: targetCategory && targetCategory.type === ChannelType.GuildCategory ? targetCategory.id : null,
+                permissionOverwrites: [
+                    { id: guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
+                    { id: user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ReadMessageHistory, PermissionsBitField.Flags.AttachFiles] },
+                    { id: client.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ManageChannels] },
+                    ...(CONFIG.STAFF_ROLE_ID && guild.roles.cache.has(CONFIG.STAFF_ROLE_ID) ? [{ id: CONFIG.STAFF_ROLE_ID, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] }] : [])
+                ]
+            });
+
+            const ticketEmbed = new EmbedBuilder()
+                .setAuthor({ name: `${user.tag} | ${ticketType}`, iconURL: user.displayAvatarURL() })
+                .setTitle(`🎫 ${ticketType}`)
+                .setDescription(`Staff has been notified. Attach screenshots or loader crash logs below while you wait.`)
+                .setColor(embedColor)
+                .addFields(fields)
+                .setFooter({ text: 'GameMarket Hub • Ticket Automation' })
+                .setTimestamp();
+
+            const closeRow = new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                    .setCustomId('close_ticket')
+                    .setLabel('Close Ticket')
+                    .setStyle(ButtonStyle.Danger)
+                    .setEmoji('🔒')
+            );
+
+            await ticketChannel.send({
+                content: `${user} <@&${CONFIG.STAFF_ROLE_ID}>`,
+                embeds: [ticketEmbed],
+                components: [closeRow]
+            });
+
+            await interaction.editReply({
+                content: `✅ Your ticket has been generated: ${ticketChannel}`
+            });
+
+        } catch (err) {
+            console.error('Error creating ticket channel:', err);
+            await interaction.editReply({ content: `❌ Could not open ticket: \`${err.message}\`` });
+        }
+        return;
+    }
+
+    // -------------------------------------------------------------
+    // 3. STAFF APPLICANT WORKFLOW
+    // -------------------------------------------------------------
+    if (interaction.isButton() && interaction.customId === 'start_staff_application') {
         const guild = interaction.guild;
         const user = interaction.user;
         const sanitizedUsername = user.username.toLowerCase().replace(/[^a-z0-9]/g, '') || 'applicant';
@@ -456,7 +678,7 @@ client.on('interactionCreate', async (interaction) => {
         }
     }
 
-    if (interaction.customId.startsWith('accept_app_')) {
+    if (interaction.isButton() && interaction.customId.startsWith('accept_app_')) {
         const applicantId = interaction.customId.replace('accept_app_', '');
         const guild = interaction.guild;
 
@@ -516,7 +738,7 @@ client.on('interactionCreate', async (interaction) => {
         }
     }
 
-    if (interaction.customId.startsWith('reject_app_')) {
+    if (interaction.isButton() && interaction.customId.startsWith('reject_app_')) {
         if (!interaction.member.permissions.has(PermissionsBitField.Flags.ManageChannels)) {
             return interaction.reply({ content: '❌ Need Manage Channels permission.', ephemeral: true });
         }
