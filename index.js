@@ -463,14 +463,17 @@ client.on('messageCreate', async (message) => {
             .setDescription(
                 "Text channels remain locked until we hit **500 members**.\n\n" +
                 "Until then, we are actively recruiting **Chat Moderators** and **Ticket Support Staff**.\n\n" +
-                "**What We Look For:**\n" +
+                "**🎯 What We Look For:**\n" +
                 "• Fast, effective problem resolution without stalling\n" +
                 "• Strong digital product & technical troubleshooting knowledge\n" +
-                "• Composure during tickets and member disputes\n\n" +
-                "Support is handled across our dedicated web portal and Discord tickets.\n\n" +
+                "• Professional composure during disputes and tickets\n\n" +
+                "**💼 Compensation Options:**\n" +
+                "• Free tool licenses & access keys\n" +
+                "• Weekly payouts *(rates and terms discussed privately upon review)*\n\n" +
+                "Support is managed across our dedicated web portal and Discord tickets.\n\n" +
                 "Click the button below to begin your private application."
             )
-            .setColor(0x2B2D31)
+            .setColor(0x00E5FF)
             .setFooter({ text: `${message.guild.name} Recruitment` })
             .setTimestamp();
 
