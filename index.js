@@ -23,9 +23,9 @@ const CONFIG = {
     NUKE_LOGO_URL: 'Gemini_Generated_Image_6e1fjf6e1fjf6e1f-removebg-preview.png',
     NUKE_BANNER_URL: 'Gemini_Generated_Image_6e1fjf6e1fjf6e1f-removebg-preview.png',
     // STAFF APPLICATION CONFIGURATION
-    STAFF_ROLE_ID: process.env.STAFF_ROLE_ID || 'YOUR_STAFF_ROLE_ID',
-    APP_CATEGORY_ID: process.env.APP_CATEGORY_ID || 'YOUR_APP_CATEGORY_ID',
-    APP_LOG_CHANNEL_ID: process.env.APP_LOG_CHANNEL_ID || 'YOUR_APP_LOG_CHANNEL_ID'
+    STAFF_ROLE_ID: process.env.STAFF_ROLE_ID || '1533093844822790225',
+    APP_CATEGORY_ID: process.env.APP_CATEGORY_ID || '1545740999702356009',
+    APP_LOG_CHANNEL_ID: process.env.APP_LOG_CHANNEL_ID || '1545741112868610068'
 };
 
 const client = new Client({
