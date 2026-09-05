@@ -1,4 +1,14 @@
-const { Client, GatewayIntentBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, Collection } = require('discord.js');
+const { 
+    Client, 
+    GatewayIntentBits, 
+    EmbedBuilder, 
+    ActionRowBuilder, 
+    ButtonBuilder, 
+    ButtonStyle, 
+    Collection,
+    PermissionsBitField,
+    ChannelType 
+} = require('discord.js');
 const { startMonitoring, getAllStatuses } = require('./status-monitor');
 const { initWorkingHours, sendShiftUpdate } = require('./working-hours');
 
@@ -11,7 +21,11 @@ const CONFIG = {
     NUKE_CHANNEL_ID: '1533093897277014157',
     NUKE_INTERVAL_HOURS: 24, // Set to 24 hours
     NUKE_LOGO_URL: 'Gemini_Generated_Image_6e1fjf6e1fjf6e1f-removebg-preview.png',
-    NUKE_BANNER_URL: 'Gemini_Generated_Image_6e1fjf6e1fjf6e1f-removebg-preview.png'
+    NUKE_BANNER_URL: 'Gemini_Generated_Image_6e1fjf6e1fjf6e1f-removebg-preview.png',
+    // STAFF APPLICATION CONFIGURATION
+    STAFF_ROLE_ID: process.env.STAFF_ROLE_ID || 'YOUR_STAFF_ROLE_ID',
+    APP_CATEGORY_ID: process.env.APP_CATEGORY_ID || 'YOUR_APP_CATEGORY_ID',
+    APP_LOG_CHANNEL_ID: process.env.APP_LOG_CHANNEL_ID || 'YOUR_APP_LOG_CHANNEL_ID'
 };
 
 const client = new Client({
@@ -27,6 +41,16 @@ const client = new Client({
 // Cache to store invite counts & track who invited whom
 const guildInvites = new Map();
 const memberInviters = new Map(); 
+
+// Questionnaire configuration
+const APP_QUESTIONS = [
+    "**Question 1/6:** What is your age, timezone, and daily availability (hours/day & typical active times)?",
+    "**Question 2/6:** What previous experience do you have moderating servers or handling customer support tickets?",
+    "**Question 3/6:** On a scale of 1–10, how familiar are you with digital product troubleshooting (e.g., license delivery, anti-cheat requirements, PC errors)?",
+    "**Question 4/6 (Scenario):** A customer claims their digital key didn't arrive, spams caps lock, and calls the server a scam. Walk through your step-by-step handling.",
+    "**Question 5/6 (Scenario):** A customer cannot get their purchase to work due to a PC error and insists the software is broken. What is your troubleshooting process?",
+    "**Question 6/6:** A close friend on the server breaks a core rule. How do you handle it?"
+];
 
 // Bot Online Status, Cache Invites & Start Timers
 client.once('ready', async () => {
@@ -425,6 +449,176 @@ client.on('messageCreate', async (message) => {
         } catch (error) {
             console.error('Delivery Error:', error);
             await message.reply(`❌ Could not send DM to ${targetUser}. Their direct messages may be turned off.`);
+        }
+    }
+
+    // Command to spawn the Recruitment Application Panel
+    if (command === '!spawn-apps') {
+        if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) {
+            return message.reply('❌ You need Administrator permissions to run this command.');
+        }
+
+        const recruitEmbed = new EmbedBuilder()
+            .setTitle('🛡️ Community Update & Staff Recruitment')
+            .setDescription(
+                "Text channels remain locked until we hit **500 members**.\n\n" +
+                "Until then, we are actively recruiting **Chat Moderators** and **Ticket Support Staff**.\n\n" +
+                "**What We Look For:**\n" +
+                "• Fast, effective problem resolution without stalling\n" +
+                "• Strong digital product & technical troubleshooting knowledge\n" +
+                "• Composure during tickets and member disputes\n\n" +
+                "Support is handled across our dedicated web portal and Discord tickets.\n\n" +
+                "Click the button below to begin your private application."
+            )
+            .setColor(0x2B2D31)
+            .setFooter({ text: `${message.guild.name} Recruitment` })
+            .setTimestamp();
+
+        const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId('start_staff_application')
+                .setLabel('Apply for Staff')
+                .setStyle(ButtonStyle.Success)
+                .setEmoji('📝')
+        );
+
+        await message.channel.send({ embeds: [recruitEmbed], components: [row] });
+        await message.delete().catch(() => {});
+    }
+});
+
+// 4. Staff Application Intake Interaction Handler
+client.on('interactionCreate', async (interaction) => {
+    if (!interaction.isButton()) return;
+
+    if (interaction.customId === 'start_staff_application') {
+        const guild = interaction.guild;
+        const user = interaction.user;
+
+        // Check if user already has an active application channel
+        const sanitizedUsername = user.username.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const existingChannel = guild.channels.cache.find(
+            c => c.name === `app-${sanitizedUsername}`
+        );
+
+        if (existingChannel) {
+            return interaction.reply({
+                content: `You already have an active application open in ${existingChannel}.`,
+                ephemeral: true
+            });
+        }
+
+        await interaction.deferReply({ ephemeral: true });
+
+        try {
+            const overwrites = [
+                {
+                    id: guild.id, // @everyone
+                    deny: [PermissionsBitField.Flags.ViewChannel]
+                },
+                {
+                    id: user.id,
+                    allow: [
+                        PermissionsBitField.Flags.ViewChannel,
+                        PermissionsBitField.Flags.SendMessages,
+                        PermissionsBitField.Flags.ReadMessageHistory,
+                        PermissionsBitField.Flags.AttachFiles
+                    ]
+                }
+            ];
+
+            // If a staff role is configured, grant view access to staff
+            if (CONFIG.STAFF_ROLE_ID && CONFIG.STAFF_ROLE_ID !== 'YOUR_STAFF_ROLE_ID') {
+                overwrites.push({
+                    id: CONFIG.STAFF_ROLE_ID,
+                    allow: [
+                        PermissionsBitField.Flags.ViewChannel,
+                        PermissionsBitField.Flags.SendMessages,
+                        PermissionsBitField.Flags.ReadMessageHistory
+                    ]
+                });
+            }
+
+            const appChannel = await guild.channels.create({
+                name: `app-${sanitizedUsername}`,
+                type: ChannelType.GuildText,
+                parent: CONFIG.APP_CATEGORY_ID !== 'YOUR_APP_CATEGORY_ID' ? CONFIG.APP_CATEGORY_ID : null,
+                permissionOverwrites: overwrites
+            });
+
+            await interaction.editReply({
+                content: `Your private application channel has been created: ${appChannel}`,
+                ephemeral: true
+            });
+
+            const answers = [];
+            let questionIndex = 0;
+
+            const promptEmbed = new EmbedBuilder()
+                .setTitle(`Staff Application: ${user.tag}`)
+                .setDescription("Answer each question in this channel. You have 30 minutes total to finish.\n\n" + APP_QUESTIONS[questionIndex])
+                .setColor(0x5865F2);
+
+            await appChannel.send({ content: `${user}`, embeds: [promptEmbed] });
+
+            const collector = appChannel.createMessageCollector({
+                filter: (m) => m.author.id === user.id,
+                time: 1800000 // 30 minutes max
+            });
+
+            collector.on('collect', async (msg) => {
+                answers.push({ question: APP_QUESTIONS[questionIndex], answer: msg.content });
+                questionIndex++;
+
+                if (questionIndex < APP_QUESTIONS.length) {
+                    const nextEmbed = new EmbedBuilder()
+                        .setDescription(APP_QUESTIONS[questionIndex])
+                        .setColor(0x5865F2);
+                    await appChannel.send({ embeds: [nextEmbed] });
+                } else {
+                    collector.stop('completed');
+                }
+            });
+
+            collector.on('end', async (collected, reason) => {
+                if (reason === 'completed') {
+                    await appChannel.send("✅ **Application submitted successfully!** Staff will review your answers. This channel will close in 15 seconds.");
+
+                    // Forward responses to staff review channel
+                    const reviewChannel = guild.channels.cache.get(CONFIG.APP_LOG_CHANNEL_ID);
+                    if (reviewChannel) {
+                        const reviewEmbed = new EmbedBuilder()
+                            .setTitle(`New Staff Application: ${user.tag} (${user.id})`)
+                            .setColor(0x00FF7F)
+                            .setTimestamp();
+
+                        answers.forEach((entry, idx) => {
+                            reviewEmbed.addFields({
+                                name: `Q${idx + 1}`,
+                                value: entry.answer.length > 1024 ? entry.answer.slice(0, 1020) + '...' : entry.answer
+                            });
+                        });
+
+                        await reviewChannel.send({ embeds: [reviewEmbed] });
+                    }
+
+                    setTimeout(async () => {
+                        await appChannel.delete().catch(() => {});
+                    }, 15000);
+                } else {
+                    await appChannel.send("⚠️ **Application timed out.** This channel will close.");
+                    setTimeout(async () => {
+                        await appChannel.delete().catch(() => {});
+                    }, 10000);
+                }
+            });
+
+        } catch (err) {
+            console.error('Error creating app channel:', err);
+            await interaction.editReply({
+                content: 'Failed to create application channel. Check bot permissions.',
+                ephemeral: true
+            });
         }
     }
 });
