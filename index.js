@@ -42,14 +42,14 @@ const client = new Client({
 const guildInvites = new Map();
 const memberInviters = new Map(); 
 
-// Questionnaire configuration
+// Refined Questionnaire (No key dispensing for lower ranks)
 const APP_QUESTIONS = [
-    "**Question 1/6:** What is your age, timezone, and daily availability (hours/day & typical active times)?",
-    "**Question 2/6:** What previous experience do you have moderating servers or handling customer support tickets?",
-    "**Question 3/6:** On a scale of 1–10, how familiar are you with digital product troubleshooting (e.g., license delivery, anti-cheat requirements, PC errors)?",
-    "**Question 4/6 (Scenario):** A customer claims their digital key didn't arrive, spams caps lock, and calls the server a scam. Walk through your step-by-step handling.",
-    "**Question 5/6 (Scenario):** A customer cannot get their purchase to work due to a PC error and insists the software is broken. What is your troubleshooting process?",
-    "**Question 6/6:** A close friend on the server breaks a core rule. How do you handle it?"
+    "**Question 1/6 (Availability & Setup):** What is your age, timezone, and daily active hours? Do you have your own PC to help test or guide users through issues?",
+    "**Question 2/6 (Basic Windows Conflicts):** A user says their downloaded file deletes itself immediately or gets blocked from opening. What exact Windows Defender/antivirus steps or exclusions do you guide them through?",
+    "**Question 3/6 (System & Tool Requirements):** How familiar are you with common PC gaming errors (e.g., BIOS virtualization, TPM, Visual C++ runtimes, DirectX)? Walk through how you verify if a user's PC meets tool requirements.",
+    "**Question 4/6 (Chat Triage & De-escalation):** A frustrated customer starts ranting in general chat calling GMH slow or claiming their order didn't arrive. How do you handle them publicly, and how do you move them cleanly into a support ticket?",
+    "**Question 5/6 (Escalation Protocol):** Lower-rank staff do NOT generate or deliver license keys or process refunds. If a user has a payment, delivery, or key issue, what exact details do you collect from them before tagging higher-ups in internal notes?",
+    "**Question 6/6 (Compensation & Integrity):** Are you looking for free tool access keys, weekly payouts, or a mix? Also, if you catch a fellow staff member giving special treatment or leaking private info to friends, what do you do?"
 ];
 
 // Bot Online Status, Cache Invites & Start Timers
@@ -465,10 +465,10 @@ client.on('messageCreate', async (message) => {
                 "Until then, we are actively recruiting **Chat Moderators** and **Ticket Support Staff**.\n\n" +
                 "**🎯 What We Look For:**\n" +
                 "• Fast, effective problem resolution without stalling\n" +
-                "• Strong digital product & technical troubleshooting knowledge\n" +
+                "• Basic PC troubleshooting & Windows Defender conflict management\n" +
                 "• Professional composure during disputes and tickets\n\n" +
                 "**💼 Compensation Options:**\n" +
-                "• Free tool licenses & access keys\n" +
+                "• Free tool licenses & product access keys\n" +
                 "• Weekly payouts *(rates and terms discussed privately upon review)*\n\n" +
                 "Support is managed across our dedicated web portal and Discord tickets.\n\n" +
                 "Click the button below to begin your private application."
@@ -525,7 +525,6 @@ client.on('interactionCreate', async (interaction) => {
                 }
             }
 
-            // Verify fetched entity is actually a category
             const validParentId = targetCategory && targetCategory.type === ChannelType.GuildCategory 
                 ? targetCategory.id 
                 : null;
