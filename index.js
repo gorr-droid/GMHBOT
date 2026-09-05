@@ -24,7 +24,7 @@ const CONFIG = {
     NUKE_BANNER_URL: 'Gemini_Generated_Image_6e1fjf6e1fjf6e1f-removebg-preview.png',
     // STAFF APPLICATION CONFIGURATION
     STAFF_ROLE_ID: process.env.STAFF_ROLE_ID || '1533093844822790225',
-    APP_CATEGORY_ID: process.env.APP_CATEGORY_ID || '1545740999702356009',
+    APP_CATEGORY_ID: process.env.APP_CATEGORY_ID || '1535740055623180388',
     APP_LOG_CHANNEL_ID: process.env.APP_LOG_CHANNEL_ID || '1545741112868610068'
 };
 
@@ -507,7 +507,6 @@ client.on('interactionCreate', async (interaction) => {
             });
         }
 
-        // Defer reply immediately so interaction never times out
         await interaction.deferReply({ ephemeral: true });
 
         try {
@@ -522,6 +521,11 @@ client.on('interactionCreate', async (interaction) => {
                     }
                 }
             }
+
+            // Verify fetched entity is actually a category
+            const validParentId = targetCategory && targetCategory.type === ChannelType.GuildCategory 
+                ? targetCategory.id 
+                : null;
 
             const overwrites = [
                 {
@@ -562,7 +566,7 @@ client.on('interactionCreate', async (interaction) => {
             const appChannel = await guild.channels.create({
                 name: channelName,
                 type: ChannelType.GuildText,
-                parent: targetCategory ? targetCategory.id : null,
+                parent: validParentId,
                 permissionOverwrites: overwrites
             });
 
