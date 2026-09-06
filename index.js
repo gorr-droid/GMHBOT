@@ -36,9 +36,11 @@ const CONFIG = {
     APP_LOG_CHANNEL_ID: process.env.APP_LOG_CHANNEL_ID || '1545741112868610068',
     // GUILD MERGERS BACKUP VERIFY LINK
     VERIFY_LINK: 'https://verify.guildmergers.com/gmhub/gamemarkethub',
-    // ANNOUNCEMENTS & STAFF DISPATCH
+    // ANNOUNCEMENTS & PRESETS
     NEWS_CHANNEL_ID: '1537392374185992242',
-    STAFF_DISPATCH_CHANNEL_ID: '1546088909702824067'
+    STAFF_DISPATCH_CHANNEL_ID: '1546088909702824067',
+    DEFAULT_STORE_URL: 'https://gmh-shop.com',
+    TICKET_CHANNEL_LINK: 'https://discord.com/channels/1040987039270707231/1533093930730520689'
 };
 
 const client = new Client({
@@ -54,7 +56,7 @@ const client = new Client({
 const guildInvites = new Map();
 const memberInviters = new Map(); 
 
-// In-memory states
+// States
 const activeTickets = new Map();
 const draftAnnouncements = new Map();
 
@@ -145,7 +147,7 @@ function buildTicketControlRow(isClaimed = false) {
     );
 }
 
-// Commands
+// Prefix Commands
 client.on('messageCreate', async (message) => {
     if (message.author.bot || !message.guild) return;
 
@@ -154,34 +156,33 @@ client.on('messageCreate', async (message) => {
 
     if (command === '!ping') return message.reply('🏓 Pong!');
 
-    // Spawn News Dispatcher in Staff Dispatch Channel
+    // Setup announcement dispatcher in #staff-dispatch
     if (command === '!setup-news') {
         if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) return;
 
         const controlEmbed = new EmbedBuilder()
-            .setTitle('📢 Server News & Announcement Dispatcher')
+            .setTitle('📢 News & Announcement Dispatcher')
             .setDescription(
-                "Use this control panel to draft and dispatch formatted announcements to <#" + CONFIG.NEWS_CHANNEL_ID + ">.\n\n" +
-                "**Workflow:**\n" +
-                "1. Click **Draft Announcement** and fill in your copy, image URL, and ping type.\n" +
-                "2. Attach up to 5 optional link buttons side-by-side.\n" +
-                "3. Verify the generated preview, then dispatch directly to the public channel."
+                "Click below to generate an announcement for <#" + CONFIG.NEWS_CHANNEL_ID + ">.\n\n" +
+                "**Preset System:**\n" +
+                "• **Store** & **Support Ticket** buttons attach automatically.\n" +
+                "• Optional **Product Link** input creates a direct purchase button.\n" +
+                "• Optional **Image Link** adds a hero banner."
             )
             .setColor(0x00E5FF);
 
         const controlRow = new ActionRowBuilder().addComponents(
             new ButtonBuilder()
                 .setCustomId('news_start_draft')
-                .setLabel('Draft Announcement')
-                .setStyle(ButtonStyle.Primary)
-                .setEmoji('📝')
+                .setLabel('Create Announcement')
+                .setStyle(ButtonStyle.Success)
+                .setEmoji('📢')
         );
 
         await message.channel.send({ embeds: [controlEmbed], components: [controlRow] });
         await message.delete().catch(() => {});
     }
 
-    // Verify Embed Command
     if (command === '!send-verify') {
         if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) return;
 
@@ -210,7 +211,6 @@ client.on('messageCreate', async (message) => {
         await message.delete().catch(() => {});
     }
 
-    // Spawn Ticket Hub
     if (command === '!spawn-tickets') {
         if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) return;
 
@@ -244,47 +244,55 @@ client.on('messageCreate', async (message) => {
     }
 });
 
-// All Interaction Handlers
+// Interactions
 client.on('interactionCreate', async (interaction) => {
     try {
         // -------------------------------------------------------------
-        // 1. ANNOUNCEMENT DISPATCHER (STAFF DISPATCH)
+        // 1. ANNOUNCEMENT DISPATCHER (SIMPLIFIED WORKFLOW)
         // -------------------------------------------------------------
         if (interaction.isButton() && interaction.customId === 'news_start_draft') {
             const modal = new ModalBuilder()
                 .setCustomId('modal_news_draft')
-                .setTitle('Draft Server Announcement');
+                .setTitle('Create Server Announcement');
 
             modal.addComponents(
                 new ActionRowBuilder().addComponents(
                     new TextInputBuilder()
                         .setCustomId('news_title')
-                        .setLabel('Headline / Title')
-                        .setPlaceholder('e.g. WARDOGS BETA ENDS TOMORROW — BE FAST!')
+                        .setLabel('Title / Headline')
+                        .setPlaceholder('e.g. ⚡ BO7 SLOTTED EXTERNAL RESTOCK')
                         .setStyle(TextInputStyle.Short)
                         .setRequired(true)
                 ),
                 new ActionRowBuilder().addComponents(
                     new TextInputBuilder()
                         .setCustomId('news_body')
-                        .setLabel('Announcement Text (Supports Emojis/Markdown)')
-                        .setPlaceholder('Write description, discount codes, bullet points...')
+                        .setLabel('Announcement Text')
+                        .setPlaceholder('Enter your text, discounts, update notes...')
                         .setStyle(TextInputStyle.Paragraph)
                         .setRequired(true)
                 ),
                 new ActionRowBuilder().addComponents(
                     new TextInputBuilder()
+                        .setCustomId('news_product_url')
+                        .setLabel('Direct Product URL (Optional)')
+                        .setPlaceholder('https://gmh-shop.com/... (Creates a Direct Buy button)')
+                        .setStyle(TextInputStyle.Short)
+                        .setRequired(false)
+                ),
+                new ActionRowBuilder().addComponents(
+                    new TextInputBuilder()
                         .setCustomId('news_image')
-                        .setLabel('Banner / Image URL (Optional)')
-                        .setPlaceholder('https://... (direct link to .png/.jpg or leave blank)')
+                        .setLabel('Banner Image Direct URL (Optional)')
+                        .setPlaceholder('Direct link ending in .png / .jpg')
                         .setStyle(TextInputStyle.Short)
                         .setRequired(false)
                 ),
                 new ActionRowBuilder().addComponents(
                     new TextInputBuilder()
                         .setCustomId('news_ping')
-                        .setLabel('Ping Type (@everyone / @here / none)')
-                        .setPlaceholder('everyone, here, or none')
+                        .setLabel('Ping (@everyone / @here / none)')
+                        .setPlaceholder('everyone, here, or leave empty')
                         .setStyle(TextInputStyle.Short)
                         .setRequired(false)
                 )
@@ -298,6 +306,7 @@ client.on('interactionCreate', async (interaction) => {
 
             const title = interaction.fields.getTextInputValue('news_title');
             const body = interaction.fields.getTextInputValue('news_body');
+            const productUrl = interaction.fields.getTextInputValue('news_product_url')?.trim();
             const imageUrl = interaction.fields.getTextInputValue('news_image')?.trim();
             const rawPing = interaction.fields.getTextInputValue('news_ping')?.toLowerCase().trim();
 
@@ -314,105 +323,58 @@ client.on('interactionCreate', async (interaction) => {
                 previewEmbed.setImage(imageUrl);
             }
 
+            // Build Preset Buttons
+            const linkRow = new ActionRowBuilder();
+
+            if (productUrl && (productUrl.startsWith('http://') || productUrl.startsWith('https://'))) {
+                linkRow.addComponents(
+                    new ButtonBuilder()
+                        .setLabel('View Product')
+                        .setStyle(ButtonStyle.Link)
+                        .setURL(productUrl)
+                        .setEmoji('🔥')
+                );
+            }
+
+            linkRow.addComponents(
+                new ButtonBuilder()
+                    .setLabel('Store')
+                    .setStyle(ButtonStyle.Link)
+                    .setURL(CONFIG.DEFAULT_STORE_URL)
+                    .setEmoji('🛒'),
+                new ButtonBuilder()
+                    .setLabel('Open Ticket')
+                    .setStyle(ButtonStyle.Link)
+                    .setURL(CONFIG.TICKET_CHANNEL_LINK)
+                    .setEmoji('🎟️')
+            );
+
+            const controlRow = new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                    .setCustomId('news_dispatch')
+                    .setLabel('🚀 Post to Announcements')
+                    .setStyle(ButtonStyle.Success),
+                new ButtonBuilder()
+                    .setCustomId('news_cancel')
+                    .setLabel('Discard')
+                    .setStyle(ButtonStyle.Danger)
+            );
+
             const previewMsg = await interaction.channel.send({
-                content: `**[DRAFT PREVIEW]** ${pingText ? `(Will ping: \`${pingText}\`)` : '(No ping)'}`,
+                content: `**[PREVIEW]** ${pingText ? `(Ping: \`${pingText}\`)` : '(No ping)'}`,
                 embeds: [previewEmbed],
-                components: [
-                    new ActionRowBuilder().addComponents(
-                        new ButtonBuilder().setCustomId('news_add_button').setLabel('Add Link Button').setStyle(ButtonStyle.Secondary).setEmoji('➕'),
-                        new ButtonBuilder().setCustomId('news_dispatch').setLabel('Send to Server News').setStyle(ButtonStyle.Success).setEmoji('🚀'),
-                        new ButtonBuilder().setCustomId('news_cancel').setLabel('Discard').setStyle(ButtonStyle.Danger).setEmoji('🗑️')
-                    )
-                ]
+                components: [linkRow, controlRow]
             });
 
             draftAnnouncements.set(previewMsg.id, {
                 title,
                 body,
-                imageUrl: imageUrl || null,
+                imageUrl: (imageUrl && imageUrl.startsWith('http')) ? imageUrl : null,
                 pingText,
-                buttons: []
+                productUrl: (productUrl && productUrl.startsWith('http')) ? productUrl : null
             });
 
-            return await interaction.editReply({ content: '✅ Draft preview created below. You can now attach buttons or send it.' });
-        }
-
-        if (interaction.isButton() && interaction.customId === 'news_add_button') {
-            const draft = draftAnnouncements.get(interaction.message.id);
-            if (!draft) return await interaction.reply({ content: '❌ Draft session expired.', ephemeral: true });
-
-            if (draft.buttons.length >= 5) {
-                return await interaction.reply({ content: '⚠️ Maximum of 5 buttons allowed per announcement.', ephemeral: true });
-            }
-
-            const modal = new ModalBuilder()
-                .setCustomId(`modal_add_button_${interaction.message.id}`)
-                .setTitle(`Add Link Button (${draft.buttons.length + 1}/5)`);
-
-            modal.addComponents(
-                new ActionRowBuilder().addComponents(
-                    new TextInputBuilder()
-                        .setCustomId('btn_label')
-                        .setLabel('Button Label')
-                        .setPlaceholder('e.g. Website, Slotted External, Open Ticket')
-                        .setStyle(TextInputStyle.Short)
-                        .setRequired(true)
-                ),
-                new ActionRowBuilder().addComponents(
-                    new TextInputBuilder()
-                        .setCustomId('btn_url')
-                        .setLabel('Destination URL')
-                        .setPlaceholder('https://gmh-shop.com/product/...')
-                        .setStyle(TextInputStyle.Short)
-                        .setRequired(true)
-                ),
-                new ActionRowBuilder().addComponents(
-                    new TextInputBuilder()
-                        .setCustomId('btn_emoji')
-                        .setLabel('Button Emoji (Optional)')
-                        .setPlaceholder('e.g. 🛒, ⚡, 🎟️')
-                        .setStyle(TextInputStyle.Short)
-                        .setRequired(false)
-                )
-            );
-
-            return await interaction.showModal(modal);
-        }
-
-        if (interaction.isModalSubmit() && interaction.customId.startsWith('modal_add_button_')) {
-            const previewMessageId = interaction.customId.replace('modal_add_button_', '');
-            const draft = draftAnnouncements.get(previewMessageId);
-            if (!draft) return await interaction.reply({ content: '❌ Draft session expired.', ephemeral: true });
-
-            const label = interaction.fields.getTextInputValue('btn_label');
-            const url = interaction.fields.getTextInputValue('btn_url').trim();
-            const emoji = interaction.fields.getTextInputValue('btn_emoji')?.trim();
-
-            if (!url.startsWith('http://') && !url.startsWith('https://')) {
-                return await interaction.reply({ content: '❌ URL must start with http:// or https://', ephemeral: true });
-            }
-
-            draft.buttons.push({ label, url, emoji: emoji || null });
-
-            const previewRow = new ActionRowBuilder();
-            draft.buttons.forEach(btn => {
-                const b = new ButtonBuilder().setLabel(btn.label).setStyle(ButtonStyle.Link).setURL(btn.url);
-                if (btn.emoji) b.setEmoji(btn.emoji);
-                previewRow.addComponents(b);
-            });
-
-            const controlRow = new ActionRowBuilder().addComponents(
-                new ButtonBuilder().setCustomId('news_add_button').setLabel(`Add Link Button (${draft.buttons.length}/5)`).setStyle(ButtonStyle.Secondary).setEmoji('➕'),
-                new ButtonBuilder().setCustomId('news_dispatch').setLabel('Send to Server News').setStyle(ButtonStyle.Success).setEmoji('🚀'),
-                new ButtonBuilder().setCustomId('news_cancel').setLabel('Discard').setStyle(ButtonStyle.Danger).setEmoji('🗑️')
-            );
-
-            const originalMsg = await interaction.channel.messages.fetch(previewMessageId);
-            await originalMsg.edit({
-                components: [previewRow, controlRow]
-            });
-
-            return await interaction.reply({ content: `✅ Added button: **${label}**`, ephemeral: true });
+            return await interaction.editReply({ content: '✅ Preview generated below. Verify and click **Post to Announcements**.' });
         }
 
         if (interaction.isButton() && interaction.customId === 'news_dispatch') {
@@ -423,7 +385,7 @@ client.on('interactionCreate', async (interaction) => {
                                 await interaction.guild.channels.fetch(CONFIG.NEWS_CHANNEL_ID).catch(() => null);
 
             if (!newsChannel) {
-                return await interaction.reply({ content: '❌ Destination channel not found.', ephemeral: true });
+                return await interaction.reply({ content: '❌ Announcements channel not found.', ephemeral: true });
             }
 
             const finalEmbed = new EmbedBuilder()
@@ -434,27 +396,27 @@ client.on('interactionCreate', async (interaction) => {
 
             if (draft.imageUrl) finalEmbed.setImage(draft.imageUrl);
 
-            const components = [];
-            if (draft.buttons.length > 0) {
-                const linkRow = new ActionRowBuilder();
-                draft.buttons.forEach(btn => {
-                    const b = new ButtonBuilder().setLabel(btn.label).setStyle(ButtonStyle.Link).setURL(btn.url);
-                    if (btn.emoji) b.setEmoji(btn.emoji);
-                    linkRow.addComponents(b);
-                });
-                components.push(linkRow);
+            const linkRow = new ActionRowBuilder();
+            if (draft.productUrl) {
+                linkRow.addComponents(
+                    new ButtonBuilder().setLabel('View Product').setStyle(ButtonStyle.Link).setURL(draft.productUrl).setEmoji('🔥')
+                );
             }
+            linkRow.addComponents(
+                new ButtonBuilder().setLabel('Store').setStyle(ButtonStyle.Link).setURL(CONFIG.DEFAULT_STORE_URL).setEmoji('🛒'),
+                new ButtonBuilder().setLabel('Open Ticket').setStyle(ButtonStyle.Link).setURL(CONFIG.TICKET_CHANNEL_LINK).setEmoji('🎟️')
+            );
 
             await newsChannel.send({
                 content: draft.pingText ? draft.pingText : undefined,
                 embeds: [finalEmbed],
-                components: components
+                components: [linkRow]
             });
 
             draftAnnouncements.delete(interaction.message.id);
             await interaction.message.delete().catch(() => {});
 
-            return await interaction.reply({ content: `🚀 Announcement dispatched to ${newsChannel}!`, ephemeral: true });
+            return await interaction.reply({ content: `🚀 Dispatched directly to ${newsChannel}!`, ephemeral: true });
         }
 
         if (interaction.isButton() && interaction.customId === 'news_cancel') {
@@ -464,7 +426,7 @@ client.on('interactionCreate', async (interaction) => {
         }
 
         // -------------------------------------------------------------
-        // 2. TICKET MODAL OPENERS
+        // 2. TICKETS MODAL OPENERS
         // -------------------------------------------------------------
         if (interaction.isButton()) {
             if (interaction.customId === 'ticket_general') {
@@ -683,7 +645,7 @@ client.on('interactionCreate', async (interaction) => {
         }
 
         // -------------------------------------------------------------
-        // 3. MODAL SUBMISSIONS -> TICKET CREATION
+        // 3. TICKET CREATION
         // -------------------------------------------------------------
         if (interaction.isModalSubmit()) {
             const guild = interaction.guild;
