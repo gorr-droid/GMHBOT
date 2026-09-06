@@ -66,8 +66,16 @@ const CONFIG = {
 const BANNED_KEYWORDS = [
     'cheat',
     'cheats',
+    'cheater',
+    'cheating',
+    'hack',
+    'hacks',
     'hacker',
     'hacking',
+    'spoof',
+    'spoofing',
+    'spoofer',
+    'hwid spoofer',
     'aimbot',
     'wallhack',
     'esp',
@@ -76,8 +84,6 @@ const BANNED_KEYWORDS = [
     'chams',
     'softaim',
     'silent aim',
-    'spoofer',
-    'hwid spoofer',
     'mac changer',
     'serial cleaner',
     'hwid unban',
@@ -85,10 +91,10 @@ const BANNED_KEYWORDS = [
 ];
 
 const WARN_MESSAGES = [
-    "Whoa there, gamer! We don't speak in forbidden dark magic here. Enjoy a 10-second timeout to contemplate your dictionary choices. 🤫",
-    "Did you really just type that? Discord's algorithms almost had a seizure. Sit in the corner for 10 seconds. 🛑",
-    "Language! We use refined corporate buzzwords like *'advanced system utilities'* here. Back in 10 seconds! 🧼",
-    "Caught red-handed trying to summon the ban hammer! 10-second timeout applied. Wipe your keyboard. ⌨️"
+    "Whoa there, gamer! We don't speak in forbidden dark magic here. Enjoy a 1-minute timeout to contemplate your dictionary choices. 🤫",
+    "Did you really just type that? Discord's algorithms almost had a seizure. Sit in the corner for 1 minute. 🛑",
+    "Language! We use refined corporate buzzwords like *'advanced system utilities'* here. Back in 1 minute! 🧼",
+    "Caught red-handed trying to summon the ban hammer! 1-minute timeout applied. Wipe your keyboard. ⌨️"
 ];
 
 const client = new Client({
@@ -228,7 +234,8 @@ client.on('messageCreate', async (message) => {
             await message.delete().catch(() => {});
 
             if (message.member.moderatable) {
-                await message.member.timeout(10 * 1000, `Automod: Forbidden word "${matchedWord}"`).catch(() => {});
+                // 1 Minute Timeout (60,000 ms)
+                await message.member.timeout(60 * 1000, `Automod: Forbidden word "${matchedWord}"`).catch(() => {});
             }
 
             const randomWarning = WARN_MESSAGES[Math.floor(Math.random() * WARN_MESSAGES.length)];
