@@ -34,7 +34,11 @@ const CONFIG = {
     TRANSCRIPT_LOG_CHANNEL_ID: '1546038594613813350',
     APP_CATEGORY_ID: process.env.APP_CATEGORY_ID || '1535740055623180388',
     APP_LOG_CHANNEL_ID: process.env.APP_LOG_CHANNEL_ID || '1545741112868610068',
-    VERIFY_LINK: 'https://verify.guildmergers.com/gmhub/gamemarkethub'
+    // GUILD MERGERS BACKUP VERIFY LINK
+    VERIFY_LINK: 'https://verify.guildmergers.com/gmhub/gamemarkethub',
+    // ANNOUNCEMENTS & STAFF DISPATCH
+    NEWS_CHANNEL_ID: '1537392374185992242',
+    STAFF_DISPATCH_CHANNEL_ID: '1546088909702824067'
 };
 
 const client = new Client({
@@ -50,8 +54,9 @@ const client = new Client({
 const guildInvites = new Map();
 const memberInviters = new Map(); 
 
-// Active tickets state
+// In-memory states
 const activeTickets = new Map();
+const draftAnnouncements = new Map();
 
 // 9-Question Staff Application Flow
 const APP_QUESTIONS = [
@@ -140,7 +145,7 @@ function buildTicketControlRow(isClaimed = false) {
     );
 }
 
-// Prefix Commands
+// Commands
 client.on('messageCreate', async (message) => {
     if (message.author.bot || !message.guild) return;
 
@@ -149,6 +154,34 @@ client.on('messageCreate', async (message) => {
 
     if (command === '!ping') return message.reply('🏓 Pong!');
 
+    // Spawn News Dispatcher in Staff Dispatch Channel
+    if (command === '!setup-news') {
+        if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) return;
+
+        const controlEmbed = new EmbedBuilder()
+            .setTitle('📢 Server News & Announcement Dispatcher')
+            .setDescription(
+                "Use this control panel to draft and dispatch formatted announcements to <#" + CONFIG.NEWS_CHANNEL_ID + ">.\n\n" +
+                "**Workflow:**\n" +
+                "1. Click **Draft Announcement** and fill in your copy, image URL, and ping type.\n" +
+                "2. Attach up to 5 optional link buttons side-by-side.\n" +
+                "3. Verify the generated preview, then dispatch directly to the public channel."
+            )
+            .setColor(0x00E5FF);
+
+        const controlRow = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId('news_start_draft')
+                .setLabel('Draft Announcement')
+                .setStyle(ButtonStyle.Primary)
+                .setEmoji('📝')
+        );
+
+        await message.channel.send({ embeds: [controlEmbed], components: [controlRow] });
+        await message.delete().catch(() => {});
+    }
+
+    // Verify Embed Command
     if (command === '!send-verify') {
         if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) return;
 
@@ -177,6 +210,7 @@ client.on('messageCreate', async (message) => {
         await message.delete().catch(() => {});
     }
 
+    // Spawn Ticket Hub
     if (command === '!spawn-tickets') {
         if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) return;
 
@@ -213,7 +247,225 @@ client.on('messageCreate', async (message) => {
 // All Interaction Handlers
 client.on('interactionCreate', async (interaction) => {
     try {
-        // 1. MODAL OPENERS FOR TICKETS
+        // -------------------------------------------------------------
+        // 1. ANNOUNCEMENT DISPATCHER (STAFF DISPATCH)
+        // -------------------------------------------------------------
+        if (interaction.isButton() && interaction.customId === 'news_start_draft') {
+            const modal = new ModalBuilder()
+                .setCustomId('modal_news_draft')
+                .setTitle('Draft Server Announcement');
+
+            modal.addComponents(
+                new ActionRowBuilder().addComponents(
+                    new TextInputBuilder()
+                        .setCustomId('news_title')
+                        .setLabel('Headline / Title')
+                        .setPlaceholder('e.g. WARDOGS BETA ENDS TOMORROW — BE FAST!')
+                        .setStyle(TextInputStyle.Short)
+                        .setRequired(true)
+                ),
+                new ActionRowBuilder().addComponents(
+                    new TextInputBuilder()
+                        .setCustomId('news_body')
+                        .setLabel('Announcement Text (Supports Emojis/Markdown)')
+                        .setPlaceholder('Write description, discount codes, bullet points...')
+                        .setStyle(TextInputStyle.Paragraph)
+                        .setRequired(true)
+                ),
+                new ActionRowBuilder().addComponents(
+                    new TextInputBuilder()
+                        .setCustomId('news_image')
+                        .setLabel('Banner / Image URL (Optional)')
+                        .setPlaceholder('https://... (direct link to .png/.jpg or leave blank)')
+                        .setStyle(TextInputStyle.Short)
+                        .setRequired(false)
+                ),
+                new ActionRowBuilder().addComponents(
+                    new TextInputBuilder()
+                        .setCustomId('news_ping')
+                        .setLabel('Ping Type (@everyone / @here / none)')
+                        .setPlaceholder('everyone, here, or none')
+                        .setStyle(TextInputStyle.Short)
+                        .setRequired(false)
+                )
+            );
+
+            return await interaction.showModal(modal);
+        }
+
+        if (interaction.isModalSubmit() && interaction.customId === 'modal_news_draft') {
+            await interaction.deferReply({ ephemeral: true });
+
+            const title = interaction.fields.getTextInputValue('news_title');
+            const body = interaction.fields.getTextInputValue('news_body');
+            const imageUrl = interaction.fields.getTextInputValue('news_image')?.trim();
+            const rawPing = interaction.fields.getTextInputValue('news_ping')?.toLowerCase().trim();
+
+            let pingText = '';
+            if (rawPing === 'everyone') pingText = '@everyone';
+            else if (rawPing === 'here') pingText = '@here';
+
+            const previewEmbed = new EmbedBuilder()
+                .setTitle(title)
+                .setDescription(body)
+                .setColor(0x00E5FF);
+
+            if (imageUrl && (imageUrl.startsWith('http://') || imageUrl.startsWith('https://'))) {
+                previewEmbed.setImage(imageUrl);
+            }
+
+            const previewMsg = await interaction.channel.send({
+                content: `**[DRAFT PREVIEW]** ${pingText ? `(Will ping: \`${pingText}\`)` : '(No ping)'}`,
+                embeds: [previewEmbed],
+                components: [
+                    new ActionRowBuilder().addComponents(
+                        new ButtonBuilder().setCustomId('news_add_button').setLabel('Add Link Button').setStyle(ButtonStyle.Secondary).setEmoji('➕'),
+                        new ButtonBuilder().setCustomId('news_dispatch').setLabel('Send to Server News').setStyle(ButtonStyle.Success).setEmoji('🚀'),
+                        new ButtonBuilder().setCustomId('news_cancel').setLabel('Discard').setStyle(ButtonStyle.Danger).setEmoji('🗑️')
+                    )
+                ]
+            });
+
+            draftAnnouncements.set(previewMsg.id, {
+                title,
+                body,
+                imageUrl: imageUrl || null,
+                pingText,
+                buttons: []
+            });
+
+            return await interaction.editReply({ content: '✅ Draft preview created below. You can now attach buttons or send it.' });
+        }
+
+        if (interaction.isButton() && interaction.customId === 'news_add_button') {
+            const draft = draftAnnouncements.get(interaction.message.id);
+            if (!draft) return await interaction.reply({ content: '❌ Draft session expired.', ephemeral: true });
+
+            if (draft.buttons.length >= 5) {
+                return await interaction.reply({ content: '⚠️ Maximum of 5 buttons allowed per announcement.', ephemeral: true });
+            }
+
+            const modal = new ModalBuilder()
+                .setCustomId(`modal_add_button_${interaction.message.id}`)
+                .setTitle(`Add Link Button (${draft.buttons.length + 1}/5)`);
+
+            modal.addComponents(
+                new ActionRowBuilder().addComponents(
+                    new TextInputBuilder()
+                        .setCustomId('btn_label')
+                        .setLabel('Button Label')
+                        .setPlaceholder('e.g. Website, Slotted External, Open Ticket')
+                        .setStyle(TextInputStyle.Short)
+                        .setRequired(true)
+                ),
+                new ActionRowBuilder().addComponents(
+                    new TextInputBuilder()
+                        .setCustomId('btn_url')
+                        .setLabel('Destination URL')
+                        .setPlaceholder('https://gmh-shop.com/product/...')
+                        .setStyle(TextInputStyle.Short)
+                        .setRequired(true)
+                ),
+                new ActionRowBuilder().addComponents(
+                    new TextInputBuilder()
+                        .setCustomId('btn_emoji')
+                        .setLabel('Button Emoji (Optional)')
+                        .setPlaceholder('e.g. 🛒, ⚡, 🎟️')
+                        .setStyle(TextInputStyle.Short)
+                        .setRequired(false)
+                )
+            );
+
+            return await interaction.showModal(modal);
+        }
+
+        if (interaction.isModalSubmit() && interaction.customId.startsWith('modal_add_button_')) {
+            const previewMessageId = interaction.customId.replace('modal_add_button_', '');
+            const draft = draftAnnouncements.get(previewMessageId);
+            if (!draft) return await interaction.reply({ content: '❌ Draft session expired.', ephemeral: true });
+
+            const label = interaction.fields.getTextInputValue('btn_label');
+            const url = interaction.fields.getTextInputValue('btn_url').trim();
+            const emoji = interaction.fields.getTextInputValue('btn_emoji')?.trim();
+
+            if (!url.startsWith('http://') && !url.startsWith('https://')) {
+                return await interaction.reply({ content: '❌ URL must start with http:// or https://', ephemeral: true });
+            }
+
+            draft.buttons.push({ label, url, emoji: emoji || null });
+
+            const previewRow = new ActionRowBuilder();
+            draft.buttons.forEach(btn => {
+                const b = new ButtonBuilder().setLabel(btn.label).setStyle(ButtonStyle.Link).setURL(btn.url);
+                if (btn.emoji) b.setEmoji(btn.emoji);
+                previewRow.addComponents(b);
+            });
+
+            const controlRow = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId('news_add_button').setLabel(`Add Link Button (${draft.buttons.length}/5)`).setStyle(ButtonStyle.Secondary).setEmoji('➕'),
+                new ButtonBuilder().setCustomId('news_dispatch').setLabel('Send to Server News').setStyle(ButtonStyle.Success).setEmoji('🚀'),
+                new ButtonBuilder().setCustomId('news_cancel').setLabel('Discard').setStyle(ButtonStyle.Danger).setEmoji('🗑️')
+            );
+
+            const originalMsg = await interaction.channel.messages.fetch(previewMessageId);
+            await originalMsg.edit({
+                components: [previewRow, controlRow]
+            });
+
+            return await interaction.reply({ content: `✅ Added button: **${label}**`, ephemeral: true });
+        }
+
+        if (interaction.isButton() && interaction.customId === 'news_dispatch') {
+            const draft = draftAnnouncements.get(interaction.message.id);
+            if (!draft) return await interaction.reply({ content: '❌ Draft session expired.', ephemeral: true });
+
+            const newsChannel = interaction.guild.channels.cache.get(CONFIG.NEWS_CHANNEL_ID) || 
+                                await interaction.guild.channels.fetch(CONFIG.NEWS_CHANNEL_ID).catch(() => null);
+
+            if (!newsChannel) {
+                return await interaction.reply({ content: '❌ Destination channel not found.', ephemeral: true });
+            }
+
+            const finalEmbed = new EmbedBuilder()
+                .setTitle(draft.title)
+                .setDescription(draft.body)
+                .setColor(0x00E5FF)
+                .setTimestamp();
+
+            if (draft.imageUrl) finalEmbed.setImage(draft.imageUrl);
+
+            const components = [];
+            if (draft.buttons.length > 0) {
+                const linkRow = new ActionRowBuilder();
+                draft.buttons.forEach(btn => {
+                    const b = new ButtonBuilder().setLabel(btn.label).setStyle(ButtonStyle.Link).setURL(btn.url);
+                    if (btn.emoji) b.setEmoji(btn.emoji);
+                    linkRow.addComponents(b);
+                });
+                components.push(linkRow);
+            }
+
+            await newsChannel.send({
+                content: draft.pingText ? draft.pingText : undefined,
+                embeds: [finalEmbed],
+                components: components
+            });
+
+            draftAnnouncements.delete(interaction.message.id);
+            await interaction.message.delete().catch(() => {});
+
+            return await interaction.reply({ content: `🚀 Announcement dispatched to ${newsChannel}!`, ephemeral: true });
+        }
+
+        if (interaction.isButton() && interaction.customId === 'news_cancel') {
+            draftAnnouncements.delete(interaction.message.id);
+            await interaction.message.delete().catch(() => {});
+            return await interaction.reply({ content: '🗑️ Draft deleted.', ephemeral: true });
+        }
+
+        // -------------------------------------------------------------
+        // 2. TICKET MODAL OPENERS
+        // -------------------------------------------------------------
         if (interaction.isButton()) {
             if (interaction.customId === 'ticket_general') {
                 const modal = new ModalBuilder().setCustomId('modal_ticket_general').setTitle('🛠️ Technical Assistance');
@@ -279,7 +531,7 @@ client.on('interactionCreate', async (interaction) => {
                 return await interaction.showModal(modal);
             }
 
-            // 2. TICKET CONTROL BUTTONS (CLAIM / UNCLAIM / CLOSE)
+            // Ticket claim/unclaim/close
             const channel = interaction.channel;
             const member = interaction.member;
 
@@ -298,7 +550,6 @@ client.on('interactionCreate', async (interaction) => {
                     return await interaction.reply({ content: `⚠️ Already claimed by <@${ticketData.claimedBy}>.`, ephemeral: true });
                 }
 
-                // Trial Staff: keeps seniors in channel
                 if (isTrialStaff && !isFullStaff && !isAdmin) {
                     await channel.permissionOverwrites.edit(member.id, {
                         ViewChannel: true,
@@ -316,7 +567,6 @@ client.on('interactionCreate', async (interaction) => {
                     return await channel.send({ embeds: [claimEmbed] });
                 }
 
-                // Full Staff / Admin: 1-on-1 private lock
                 await channel.permissionOverwrites.edit(member.id, {
                     ViewChannel: true,
                     SendMessages: true,
@@ -432,7 +682,9 @@ client.on('interactionCreate', async (interaction) => {
             }
         }
 
-        // 3. MODAL SUBMISSIONS -> SPAWN CHANNEL
+        // -------------------------------------------------------------
+        // 3. MODAL SUBMISSIONS -> TICKET CREATION
+        // -------------------------------------------------------------
         if (interaction.isModalSubmit()) {
             const guild = interaction.guild;
             const user = interaction.user;
@@ -480,66 +732,68 @@ client.on('interactionCreate', async (interaction) => {
                 );
             }
 
-            await interaction.deferReply({ ephemeral: true });
+            if (['modal_ticket_general', 'modal_ticket_purchase', 'modal_ticket_resell', 'modal_ticket_hwid'].includes(interaction.customId)) {
+                await interaction.deferReply({ ephemeral: true });
 
-            const sanitizedName = user.username.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 10) || 'user';
-            const channelName = `${channelPrefix}-${sanitizedName}`;
+                const sanitizedName = user.username.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 10) || 'user';
+                const channelName = `${channelPrefix}-${sanitizedName}`;
 
-            let targetCategory = null;
-            if (CONFIG.TICKET_CATEGORY_ID) {
-                targetCategory = guild.channels.cache.get(CONFIG.TICKET_CATEGORY_ID) || await guild.channels.fetch(CONFIG.TICKET_CATEGORY_ID).catch(() => null);
-            }
-
-            const permissionOverwrites = [
-                { id: guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
-                { id: user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ReadMessageHistory, PermissionsBitField.Flags.AttachFiles] },
-                { id: client.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ManageChannels] }
-            ];
-
-            if (guild.roles.cache.has(CONFIG.STAFF_ROLE_ID)) {
-                permissionOverwrites.push({ id: CONFIG.STAFF_ROLE_ID, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] });
-            }
-            if (guild.roles.cache.has(CONFIG.TRIAL_STAFF_ROLE_ID)) {
-                permissionOverwrites.push({ id: CONFIG.TRIAL_STAFF_ROLE_ID, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] });
-            }
-            for (const adminId of CONFIG.ADMIN_ROLE_IDS) {
-                if (guild.roles.cache.has(adminId)) {
-                    permissionOverwrites.push({ id: adminId, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] });
+                let targetCategory = null;
+                if (CONFIG.TICKET_CATEGORY_ID) {
+                    targetCategory = guild.channels.cache.get(CONFIG.TICKET_CATEGORY_ID) || await guild.channels.fetch(CONFIG.TICKET_CATEGORY_ID).catch(() => null);
                 }
+
+                const permissionOverwrites = [
+                    { id: guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
+                    { id: user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ReadMessageHistory, PermissionsBitField.Flags.AttachFiles] },
+                    { id: client.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ManageChannels] }
+                ];
+
+                if (guild.roles.cache.has(CONFIG.STAFF_ROLE_ID)) {
+                    permissionOverwrites.push({ id: CONFIG.STAFF_ROLE_ID, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] });
+                }
+                if (guild.roles.cache.has(CONFIG.TRIAL_STAFF_ROLE_ID)) {
+                    permissionOverwrites.push({ id: CONFIG.TRIAL_STAFF_ROLE_ID, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] });
+                }
+                for (const adminId of CONFIG.ADMIN_ROLE_IDS) {
+                    if (guild.roles.cache.has(adminId)) {
+                        permissionOverwrites.push({ id: adminId, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] });
+                    }
+                }
+
+                const ticketChannel = await guild.channels.create({
+                    name: channelName,
+                    type: ChannelType.GuildText,
+                    parent: targetCategory && targetCategory.type === ChannelType.GuildCategory ? targetCategory.id : null,
+                    topic: `${user.id}|Support`,
+                    permissionOverwrites
+                });
+
+                activeTickets.set(ticketChannel.id, { claimedBy: null, ticketOwnerId: user.id, type: ticketType });
+
+                const supportHeaderEmbed = new EmbedBuilder()
+                    .setTitle('Ticket Support')
+                    .setDescription(`Welcome to your ticket, ${user}!\nHow can we help you today?\n\n\`Channel ID: ${ticketChannel.id}\``)
+                    .setColor(0x5865F2);
+
+                const infoEmbed = new EmbedBuilder()
+                    .setTitle('📝 Additional Information')
+                    .setDescription(`Form answers submitted by **${user.tag}**.`)
+                    .setColor(embedColor)
+                    .addFields(fields)
+                    .setFooter({ text: 'GameMarket Hub • Ticket System' })
+                    .setTimestamp();
+
+                await ticketChannel.send({
+                    content: `${user} <@&${CONFIG.STAFF_ROLE_ID}>`,
+                    embeds: [supportHeaderEmbed],
+                    components: [buildTicketControlRow(false)]
+                });
+
+                await ticketChannel.send({ embeds: [infoEmbed] });
+
+                return await interaction.editReply({ content: `✅ Your ticket has been opened: ${ticketChannel}` });
             }
-
-            const ticketChannel = await guild.channels.create({
-                name: channelName,
-                type: ChannelType.GuildText,
-                parent: targetCategory && targetCategory.type === ChannelType.GuildCategory ? targetCategory.id : null,
-                topic: `${user.id}|Support`,
-                permissionOverwrites
-            });
-
-            activeTickets.set(ticketChannel.id, { claimedBy: null, ticketOwnerId: user.id, type: ticketType });
-
-            const supportHeaderEmbed = new EmbedBuilder()
-                .setTitle('Ticket Support')
-                .setDescription(`Welcome to your ticket, ${user}!\nHow can we help you today?\n\n\`Channel ID: ${ticketChannel.id}\``)
-                .setColor(0x5865F2);
-
-            const infoEmbed = new EmbedBuilder()
-                .setTitle('📝 Additional Information')
-                .setDescription(`Form answers submitted by **${user.tag}**.`)
-                .setColor(embedColor)
-                .addFields(fields)
-                .setFooter({ text: 'GameMarket Hub • Ticket System' })
-                .setTimestamp();
-
-            await ticketChannel.send({
-                content: `${user} <@&${CONFIG.STAFF_ROLE_ID}>`,
-                embeds: [supportHeaderEmbed],
-                components: [buildTicketControlRow(false)]
-            });
-
-            await ticketChannel.send({ embeds: [infoEmbed] });
-
-            await interaction.editReply({ content: `✅ Your ticket has been opened: ${ticketChannel}` });
         }
     } catch (err) {
         console.error('Interaction error caught:', err);
