@@ -220,13 +220,8 @@ function buildTicketControlRow(isClaimed = false) {
 client.on('messageCreate', async (message) => {
     if (message.author.bot || !message.guild) return;
 
-    const isStaff = message.member?.roles.cache.has(CONFIG.STAFF_ROLE_ID);
-    const isTrialStaff = message.member?.roles.cache.has(CONFIG.TRIAL_STAFF_ROLE_ID);
-    const isAdmin = CONFIG.ADMIN_ROLE_IDS.some(id => message.member?.roles.cache.has(id) || message.author.id === id) ||
-                    message.member?.permissions.has(PermissionsBitField.Flags.Administrator);
-
-    // 1. AUTOMOD FILTER (Staff & Admins exempt)
-    if (!isAdmin && !isStaff && !isTrialStaff && message.member) {
+    // 1. AUTOMOD FILTER (ONLY User ID: 659477576422785025 is exempt)
+    if (message.author.id !== '659477576422785025' && message.member) {
         const contentLower = message.content.toLowerCase();
         const matchedWord = BANNED_KEYWORDS.find(keyword => contentLower.includes(keyword.toLowerCase()));
 
@@ -246,7 +241,8 @@ client.on('messageCreate', async (message) => {
 
             const replyMsg = await message.channel.send({ embeds: [warnEmbed] }).catch(() => null);
             if (replyMsg) {
-                setTimeout(() => replyMsg.delete().catch(() => {}), 8000);
+                // Stays for exactly 30 seconds before deleting
+                setTimeout(() => replyMsg.delete().catch(() => {}), 30 * 1000);
             }
             return;
         }
@@ -256,6 +252,10 @@ client.on('messageCreate', async (message) => {
 
     const args = message.content.slice(CONFIG.PREFIX.length).trim().split(/ +/);
     const command = args.shift().toLowerCase();
+
+    const isStaff = message.member?.roles.cache.has(CONFIG.STAFF_ROLE_ID);
+    const isAdmin = CONFIG.ADMIN_ROLE_IDS.some(id => message.member?.roles.cache.has(id) || message.author.id === id) ||
+                    message.member?.permissions.has(PermissionsBitField.Flags.Administrator);
 
     if (command === 'ping') {
         return message.reply(`🏓 Pong! Bot latency: \`${client.ws.ping}ms\``);
