@@ -34,7 +34,6 @@ try {
 // BOT CONFIGURATION & PRESETS
 // =============================================================
 const CONFIG = {
-    // Supports either Render environment variable name
     TOKEN: process.env.BOT_TOKEN || process.env.DISCORD_TOKEN,
     PREFIX: '!',
     
@@ -63,6 +62,34 @@ const CONFIG = {
     VERIFY_LINK: 'https://verify.guildmergers.com/gmhub/1040987039270707231',
     PERMANENT_BANNER_URL: 'https://cdn.discordapp.com/attachments/1533856623108292811/1546231062743752714/Gemini_Generated_Image_2rln5o2rln5o2rln.jpg'
 };
+
+const BANNED_KEYWORDS = [
+    'cheat',
+    'cheats',
+    'hacker',
+    'hacking',
+    'aimbot',
+    'wallhack',
+    'esp',
+    'triggerbot',
+    'spinbot',
+    'chams',
+    'softaim',
+    'silent aim',
+    'spoofer',
+    'hwid spoofer',
+    'mac changer',
+    'serial cleaner',
+    'hwid unban',
+    'hardware ban bypass'
+];
+
+const WARN_MESSAGES = [
+    "Whoa there, gamer! We don't speak in forbidden dark magic here. Enjoy a 10-second timeout to contemplate your dictionary choices. 🤫",
+    "Did you really just type that? Discord's algorithms almost had a seizure. Sit in the corner for 10 seconds. 🛑",
+    "Language! We use refined corporate buzzwords like *'advanced system utilities'* here. Back in 10 seconds! 🧼",
+    "Caught red-handed trying to summon the ban hammer! 10-second timeout applied. Wipe your keyboard. ⌨️"
+];
 
 const client = new Client({
     intents: [
@@ -182,19 +209,46 @@ function buildTicketControlRow(isClaimed = false) {
 }
 
 // =============================================================
-// COMMANDS (PREFIX: !)
+// MESSAGE HANDLER: AUTOMOD & COMMANDS
 // =============================================================
 client.on('messageCreate', async (message) => {
     if (message.author.bot || !message.guild) return;
+
+    const isStaff = message.member?.roles.cache.has(CONFIG.STAFF_ROLE_ID);
+    const isTrialStaff = message.member?.roles.cache.has(CONFIG.TRIAL_STAFF_ROLE_ID);
+    const isAdmin = CONFIG.ADMIN_ROLE_IDS.some(id => message.member?.roles.cache.has(id) || message.author.id === id) ||
+                    message.member?.permissions.has(PermissionsBitField.Flags.Administrator);
+
+    // 1. AUTOMOD FILTER (Staff & Admins exempt)
+    if (!isAdmin && !isStaff && !isTrialStaff && message.member) {
+        const contentLower = message.content.toLowerCase();
+        const matchedWord = BANNED_KEYWORDS.find(keyword => contentLower.includes(keyword.toLowerCase()));
+
+        if (matchedWord) {
+            await message.delete().catch(() => {});
+
+            if (message.member.moderatable) {
+                await message.member.timeout(10 * 1000, `Automod: Forbidden word "${matchedWord}"`).catch(() => {});
+            }
+
+            const randomWarning = WARN_MESSAGES[Math.floor(Math.random() * WARN_MESSAGES.length)];
+            const warnEmbed = new EmbedBuilder()
+                .setTitle('🚨 Dictionary Violation!')
+                .setDescription(`${message.author}, ${randomWarning}\n\n*Triggered keyword:* \`||${matchedWord}||\``)
+                .setColor(0xFF0055);
+
+            const replyMsg = await message.channel.send({ embeds: [warnEmbed] }).catch(() => null);
+            if (replyMsg) {
+                setTimeout(() => replyMsg.delete().catch(() => {}), 8000);
+            }
+            return;
+        }
+    }
+
     if (!message.content.startsWith(CONFIG.PREFIX)) return;
 
     const args = message.content.slice(CONFIG.PREFIX.length).trim().split(/ +/);
     const command = args.shift().toLowerCase();
-
-    const isStaff = message.member.roles.cache.has(CONFIG.STAFF_ROLE_ID);
-    const isTrialStaff = message.member.roles.cache.has(CONFIG.TRIAL_STAFF_ROLE_ID);
-    const isAdmin = CONFIG.ADMIN_ROLE_IDS.some(id => message.member.roles.cache.has(id) || message.author.id === id) ||
-                    message.member.permissions.has(PermissionsBitField.Flags.Administrator);
 
     if (command === 'ping') {
         return message.reply(`🏓 Pong! Bot latency: \`${client.ws.ping}ms\``);
