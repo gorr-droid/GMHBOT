@@ -34,13 +34,15 @@ const CONFIG = {
     TRANSCRIPT_LOG_CHANNEL_ID: '1546038594613813350',
     APP_CATEGORY_ID: process.env.APP_CATEGORY_ID || '1535740055623180388',
     APP_LOG_CHANNEL_ID: process.env.APP_LOG_CHANNEL_ID || '1545741112868610068',
-    // GUILD MERGERS BACKUP VERIFY LINK
-    VERIFY_LINK: 'https://verify.guildmergers.com/gmhub/gamemarkethub',
-    // ANNOUNCEMENTS & PRESETS
+    // VERIFIED GUILD MERGERS LINK
+    VERIFY_LINK: 'https://verify.guildmergers.com/gmhub/1040987039270707231',
+    // CHANNELS & PRESETS
     NEWS_CHANNEL_ID: '1537392374185992242',
     STAFF_DISPATCH_CHANNEL_ID: '1546088909702824067',
     DEFAULT_STORE_URL: 'https://gmh-shop.com',
-    TICKET_CHANNEL_LINK: 'https://discord.com/channels/1040987039270707231/1533093930730520689'
+    TICKET_CHANNEL_LINK: 'https://discord.com/channels/1040987039270707231/1533093930730520689',
+    // PERMANENT DEFAULT ANNOUNCEMENT BANNER
+    DEFAULT_NEWS_BANNER: 'https://i.postimg.cc/rF6CbnxD/Gemini-Generated-Image-2rln5o2rln5o2rln.jpg'
 };
 
 const client = new Client({
@@ -147,7 +149,7 @@ function buildTicketControlRow(isClaimed = false) {
     );
 }
 
-// Prefix Commands
+// Commands
 client.on('messageCreate', async (message) => {
     if (message.author.bot || !message.guild) return;
 
@@ -156,7 +158,7 @@ client.on('messageCreate', async (message) => {
 
     if (command === '!ping') return message.reply('🏓 Pong!');
 
-    // Setup announcement dispatcher in #staff-dispatch
+    // Setup news dispatcher panel in #staff-dispatch
     if (command === '!setup-news') {
         if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) return;
 
@@ -164,10 +166,10 @@ client.on('messageCreate', async (message) => {
             .setTitle('📢 News & Announcement Dispatcher')
             .setDescription(
                 "Click below to generate an announcement for <#" + CONFIG.NEWS_CHANNEL_ID + ">.\n\n" +
-                "**Preset System:**\n" +
+                "**Automated Layout:**\n" +
+                "• **Banner:** GMH permanent wide hero banner is automatically applied.\n" +
                 "• **Store** & **Support Ticket** buttons attach automatically.\n" +
-                "• Optional **Product Link** input creates a direct purchase button.\n" +
-                "• Optional **Image Link** adds a hero banner."
+                "• Optional **Product Link** creates a direct view/buy button."
             )
             .setColor(0x00E5FF);
 
@@ -183,6 +185,7 @@ client.on('messageCreate', async (message) => {
         await message.delete().catch(() => {});
     }
 
+    // Deploy verification embed with fixed Guild Mergers URL
     if (command === '!send-verify') {
         if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) return;
 
@@ -211,6 +214,7 @@ client.on('messageCreate', async (message) => {
         await message.delete().catch(() => {});
     }
 
+    // Spawn Support Tickets Hub
     if (command === '!spawn-tickets') {
         if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) return;
 
@@ -244,11 +248,11 @@ client.on('messageCreate', async (message) => {
     }
 });
 
-// Interactions
+// All Interaction Handlers
 client.on('interactionCreate', async (interaction) => {
     try {
         // -------------------------------------------------------------
-        // 1. ANNOUNCEMENT DISPATCHER (SIMPLIFIED WORKFLOW)
+        // 1. ANNOUNCEMENT DISPATCHER (PERMANENT IMAGE BANNER)
         // -------------------------------------------------------------
         if (interaction.isButton() && interaction.customId === 'news_start_draft') {
             const modal = new ModalBuilder()
@@ -268,7 +272,7 @@ client.on('interactionCreate', async (interaction) => {
                     new TextInputBuilder()
                         .setCustomId('news_body')
                         .setLabel('Announcement Text')
-                        .setPlaceholder('Enter your text, discounts, update notes...')
+                        .setPlaceholder('Enter description, changelog, discount codes...')
                         .setStyle(TextInputStyle.Paragraph)
                         .setRequired(true)
                 ),
@@ -276,15 +280,7 @@ client.on('interactionCreate', async (interaction) => {
                     new TextInputBuilder()
                         .setCustomId('news_product_url')
                         .setLabel('Direct Product URL (Optional)')
-                        .setPlaceholder('https://gmh-shop.com/... (Creates a Direct Buy button)')
-                        .setStyle(TextInputStyle.Short)
-                        .setRequired(false)
-                ),
-                new ActionRowBuilder().addComponents(
-                    new TextInputBuilder()
-                        .setCustomId('news_image')
-                        .setLabel('Banner Image Direct URL (Optional)')
-                        .setPlaceholder('Direct link ending in .png / .jpg')
+                        .setPlaceholder('https://gmh-shop.com/... (Leaves out button if blank)')
                         .setStyle(TextInputStyle.Short)
                         .setRequired(false)
                 ),
@@ -307,7 +303,6 @@ client.on('interactionCreate', async (interaction) => {
             const title = interaction.fields.getTextInputValue('news_title');
             const body = interaction.fields.getTextInputValue('news_body');
             const productUrl = interaction.fields.getTextInputValue('news_product_url')?.trim();
-            const imageUrl = interaction.fields.getTextInputValue('news_image')?.trim();
             const rawPing = interaction.fields.getTextInputValue('news_ping')?.toLowerCase().trim();
 
             let pingText = '';
@@ -317,47 +312,23 @@ client.on('interactionCreate', async (interaction) => {
             const previewEmbed = new EmbedBuilder()
                 .setTitle(title)
                 .setDescription(body)
-                .setColor(0x00E5FF);
+                .setColor(0x00E5FF)
+                .setImage(CONFIG.DEFAULT_NEWS_BANNER);
 
-            if (imageUrl && (imageUrl.startsWith('http://') || imageUrl.startsWith('https://'))) {
-                previewEmbed.setImage(imageUrl);
-            }
-
-            // Build Preset Buttons
             const linkRow = new ActionRowBuilder();
-
             if (productUrl && (productUrl.startsWith('http://') || productUrl.startsWith('https://'))) {
                 linkRow.addComponents(
-                    new ButtonBuilder()
-                        .setLabel('View Product')
-                        .setStyle(ButtonStyle.Link)
-                        .setURL(productUrl)
-                        .setEmoji('🔥')
+                    new ButtonBuilder().setLabel('View Product').setStyle(ButtonStyle.Link).setURL(productUrl).setEmoji('🔥')
                 );
             }
-
             linkRow.addComponents(
-                new ButtonBuilder()
-                    .setLabel('Store')
-                    .setStyle(ButtonStyle.Link)
-                    .setURL(CONFIG.DEFAULT_STORE_URL)
-                    .setEmoji('🛒'),
-                new ButtonBuilder()
-                    .setLabel('Open Ticket')
-                    .setStyle(ButtonStyle.Link)
-                    .setURL(CONFIG.TICKET_CHANNEL_LINK)
-                    .setEmoji('🎟️')
+                new ButtonBuilder().setLabel('Store').setStyle(ButtonStyle.Link).setURL(CONFIG.DEFAULT_STORE_URL).setEmoji('🛒'),
+                new ButtonBuilder().setLabel('Open Ticket').setStyle(ButtonStyle.Link).setURL(CONFIG.TICKET_CHANNEL_LINK).setEmoji('🎟️')
             );
 
             const controlRow = new ActionRowBuilder().addComponents(
-                new ButtonBuilder()
-                    .setCustomId('news_dispatch')
-                    .setLabel('🚀 Post to Announcements')
-                    .setStyle(ButtonStyle.Success),
-                new ButtonBuilder()
-                    .setCustomId('news_cancel')
-                    .setLabel('Discard')
-                    .setStyle(ButtonStyle.Danger)
+                new ButtonBuilder().setCustomId('news_dispatch').setLabel('🚀 Post to Announcements').setStyle(ButtonStyle.Success),
+                new ButtonBuilder().setCustomId('news_cancel').setLabel('Discard').setStyle(ButtonStyle.Danger)
             );
 
             const previewMsg = await interaction.channel.send({
@@ -369,12 +340,11 @@ client.on('interactionCreate', async (interaction) => {
             draftAnnouncements.set(previewMsg.id, {
                 title,
                 body,
-                imageUrl: (imageUrl && imageUrl.startsWith('http')) ? imageUrl : null,
                 pingText,
                 productUrl: (productUrl && productUrl.startsWith('http')) ? productUrl : null
             });
 
-            return await interaction.editReply({ content: '✅ Preview generated below. Verify and click **Post to Announcements**.' });
+            return await interaction.editReply({ content: '✅ Preview generated below with your permanent banner. Check it and click **Post to Announcements**.' });
         }
 
         if (interaction.isButton() && interaction.customId === 'news_dispatch') {
@@ -392,9 +362,8 @@ client.on('interactionCreate', async (interaction) => {
                 .setTitle(draft.title)
                 .setDescription(draft.body)
                 .setColor(0x00E5FF)
+                .setImage(CONFIG.DEFAULT_NEWS_BANNER)
                 .setTimestamp();
-
-            if (draft.imageUrl) finalEmbed.setImage(draft.imageUrl);
 
             const linkRow = new ActionRowBuilder();
             if (draft.productUrl) {
@@ -645,7 +614,7 @@ client.on('interactionCreate', async (interaction) => {
         }
 
         // -------------------------------------------------------------
-        // 3. TICKET CREATION
+        // 3. TICKET FORM SUBMISSIONS
         // -------------------------------------------------------------
         if (interaction.isModalSubmit()) {
             const guild = interaction.guild;
