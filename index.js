@@ -12,6 +12,7 @@ const {
     PermissionsBitField,
     ChannelType 
 } = require('discord.js');
+const discordTranscripts = require('discord-html-transcripts');
 const { initWorkingHours, sendShiftUpdate } = require('./working-hours');
 
 // Bot Configuration
@@ -24,12 +25,15 @@ const CONFIG = {
     NUKE_INTERVAL_HOURS: 24,
     NUKE_LOGO_URL: 'Gemini_Generated_Image_6e1fjf6e1fjf6e1f-removebg-preview.png',
     NUKE_BANNER_URL: 'Gemini_Generated_Image_6e1fjf6e1fjf6e1f-removebg-preview.png',
-    // STAFF APPLICATION CONFIGURATION
-    STAFF_ROLE_ID: process.env.STAFF_ROLE_ID || '1533093844822790225',
+    // ROLES HIERARCHY
+    STAFF_ROLE_ID: '1533093844822790225',
+    TRIAL_STAFF_ROLE_ID: '1542980594408099901',
+    ADMIN_ROLE_IDS: ['659477576422785025', '1533546090983588074'],
+    // CATEGORIES & LOGS
+    TICKET_CATEGORY_ID: process.env.TICKET_CATEGORY_ID || '1535740055623180388',
+    TRANSCRIPT_LOG_CHANNEL_ID: '1546038594613813350',
     APP_CATEGORY_ID: process.env.APP_CATEGORY_ID || '1535740055623180388',
-    APP_LOG_CHANNEL_ID: process.env.APP_LOG_CHANNEL_ID || '1545741112868610068',
-    // SUPPORT TICKET CATEGORY
-    TICKET_CATEGORY_ID: process.env.TICKET_CATEGORY_ID || '1535740055623180388'
+    APP_LOG_CHANNEL_ID: process.env.APP_LOG_CHANNEL_ID || '1545741112868610068'
 };
 
 const client = new Client({
@@ -44,6 +48,9 @@ const client = new Client({
 
 const guildInvites = new Map();
 const memberInviters = new Map(); 
+
+// Track active ticket state: channelId -> { claimedBy, ticketOwnerId, type }
+const activeTickets = new Map();
 
 // 9-Question Staff Application Flow
 const APP_QUESTIONS = [
@@ -164,7 +171,30 @@ client.on('guildMemberAdd', async (member) => {
     } catch (err) {}
 });
 
-// Message Commands
+// Helper: Control Panel Row
+function buildTicketControlRow(isClaimed = false) {
+    return new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+            .setCustomId('close_ticket')
+            .setLabel('Close')
+            .setStyle(ButtonStyle.Danger)
+            .setEmoji('🔒'),
+        new ButtonBuilder()
+            .setCustomId('claim_ticket')
+            .setLabel('Claim')
+            .setStyle(ButtonStyle.Primary)
+            .setEmoji('🙋')
+            .setDisabled(isClaimed),
+        new ButtonBuilder()
+            .setCustomId('unclaim_ticket')
+            .setLabel('Unclaim')
+            .setStyle(ButtonStyle.Secondary)
+            .setEmoji('🔄')
+            .setDisabled(!isClaimed)
+    );
+}
+
+// Commands
 client.on('messageCreate', async (message) => {
     if (message.author.bot || !message.guild) return;
 
@@ -224,7 +254,7 @@ client.on('messageCreate', async (message) => {
         }
     }
 
-    // Spawn Staff Application Panel
+    // Spawn Staff Applications Panel
     if (command === '!spawn-apps') {
         if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) return;
 
@@ -261,42 +291,50 @@ client.on('messageCreate', async (message) => {
         const ticketEmbed = new EmbedBuilder()
             .setTitle('🛡️ GMH-SHOP • Customer Support Hub')
             .setDescription(
-                "Need technical support, custom orders, or reseller access? Select the appropriate category below to open a direct channel with our staff team.\n\n" +
-                "**⚡ Support Guidelines**\n" +
-                "• **One Ticket per Issue:** Avoid opening duplicate tickets.\n" +
-                "• **No Passive Pings:** Submit your problem details immediately upon opening.\n" +
-                "• **Logs & Proof:** If reporting errors, attach full-screen screenshots and loader logs.\n\n" +
-                "**💳 Accepted Payment Options**\n" +
-                "• **Crypto:** BTC • LTC • USDT • ETH *(Instant auto-delivery on site)*\n" +
-                "• **Credit / Debit Cards:** Supported via site checkout\n" +
-                "• **Alternative:** PayPal F&F and Rewarble Gift Cards *(Supported through tickets)*\n\n" +
-                "Click a button below to launch your private ticket form."
+                "Open a ticket and our support team will help you.\n\n" +
+                "**Please do not open a ticket and say nothing or spam messages.**\n" +
+                "Tell us what you need help with so we can assist you properly.\n\n" +
+                "**What We Can Help With**\n" +
+                "• **Technical Support** – Issues, loader crashes, and runtime errors\n" +
+                "• **Purchase Support** – Orders, invoices, and payment routing\n" +
+                "• **Reselling Support** – Custom store supply & bulk keys\n" +
+                "• **HWID Reset** – Key resets and hardware transfers\n\n" +
+                "**Accepted Payment Methods**\n" +
+                "• Card\n" +
+                "• Most Crypto (BTC, LTC, USDT, ETH)\n" +
+                "• PayPal F&F (Directly through tickets)\n" +
+                "• Rewarble Gift Cards\n\n" +
+                "**Before Opening a Ticket**\n" +
+                "• Be clear about what you need\n" +
+                "• Include screenshots and loader logs\n" +
+                "• Please be patient while waiting for staff\n" +
+                "• We are not robots 🤖 so wait like a good human 👨"
             )
             .setColor(0x00E5FF)
-            .setFooter({ text: 'GameMarket Hub • Automated Support System' })
+            .setFooter({ text: 'GameMarket Hub • Support 24/7' })
             .setTimestamp();
 
         const buttonRow = new ActionRowBuilder().addComponents(
             new ButtonBuilder()
                 .setCustomId('ticket_general')
-                .setLabel('Tech Support')
+                .setLabel('General Support')
                 .setStyle(ButtonStyle.Primary)
-                .setEmoji('🛠️'),
+                .setEmoji('💬'),
             new ButtonBuilder()
                 .setCustomId('ticket_purchase')
-                .setLabel('Buy / Payment')
+                .setLabel('Purchase Support')
                 .setStyle(ButtonStyle.Success)
                 .setEmoji('🛒'),
             new ButtonBuilder()
                 .setCustomId('ticket_resell')
-                .setLabel('Reseller Access')
+                .setLabel('Reselling Support')
                 .setStyle(ButtonStyle.Secondary)
                 .setEmoji('🤝'),
             new ButtonBuilder()
                 .setCustomId('ticket_hwid')
                 .setLabel('HWID Reset')
                 .setStyle(ButtonStyle.Danger)
-                .setEmoji('🔄')
+                .setEmoji('💻')
         );
 
         await message.channel.send({ embeds: [ticketEmbed], components: [buttonRow] });
@@ -304,30 +342,30 @@ client.on('messageCreate', async (message) => {
     }
 });
 
-// Interactions (Buttons, Modals, Support Tickets)
+// Interactions
 client.on('interactionCreate', async (interaction) => {
+    const guild = interaction.guild;
+    const user = interaction.user;
+
     // -------------------------------------------------------------
-    // 1. TICKET BUTTONS -> POPUP MODALS
+    // 1. TICKET MODAL LAUNCHERS
     // -------------------------------------------------------------
     if (interaction.isButton()) {
         if (interaction.customId === 'ticket_general') {
-            const modal = new ModalBuilder()
-                .setCustomId('modal_ticket_general')
-                .setTitle('🛠️ GMH Technical Assistance');
-
+            const modal = new ModalBuilder().setCustomId('modal_ticket_general').setTitle('📝 Ticket Information Form');
             modal.addComponents(
                 new ActionRowBuilder().addComponents(
                     new TextInputBuilder()
                         .setCustomId('general_tool')
                         .setLabel('Which software/game is having issues?')
                         .setStyle(TextInputStyle.Short)
-                        .setPlaceholder('e.g. Thunex BO7, Arc Raiders External...')
+                        .setPlaceholder('e.g. Ancient COD, Arc Raiders...')
                         .setRequired(true)
                 ),
                 new ActionRowBuilder().addComponents(
                     new TextInputBuilder()
                         .setCustomId('general_sys')
-                        .setLabel('Windows Build & Antivirus Status')
+                        .setLabel('Windows Version & Antivirus Status')
                         .setStyle(TextInputStyle.Short)
                         .setPlaceholder('e.g. Win 11 23H2 / Defender Disabled')
                         .setRequired(true)
@@ -335,9 +373,9 @@ client.on('interactionCreate', async (interaction) => {
                 new ActionRowBuilder().addComponents(
                     new TextInputBuilder()
                         .setCustomId('general_reason')
-                        .setLabel('Explain the issue or error code')
+                        .setLabel('Why you opening a Support Ticket?')
                         .setStyle(TextInputStyle.Paragraph)
-                        .setPlaceholder('Describe exactly what happens when you run it...')
+                        .setPlaceholder('Describe your question or issue...')
                         .setRequired(true)
                 )
             );
@@ -345,49 +383,35 @@ client.on('interactionCreate', async (interaction) => {
         }
 
         if (interaction.customId === 'ticket_purchase') {
-            const modal = new ModalBuilder()
-                .setCustomId('modal_ticket_purchase')
-                .setTitle('🛒 GMH Purchase & Invoicing');
-
+            const modal = new ModalBuilder().setCustomId('modal_ticket_purchase').setTitle('📝 Ticket Information Form');
             modal.addComponents(
                 new ActionRowBuilder().addComponents(
                     new TextInputBuilder()
                         .setCustomId('purchase_item')
-                        .setLabel('Product & Duration')
+                        .setLabel('What would you like to Purchase?')
                         .setStyle(TextInputStyle.Short)
-                        .setPlaceholder('e.g. Raiko Apex (30 Days), Temp Spoofer (Day)')
+                        .setPlaceholder('e.g. Thunex BO7 (Month), Temp Spoofer')
                         .setRequired(true)
                 ),
                 new ActionRowBuilder().addComponents(
                     new TextInputBuilder()
                         .setCustomId('purchase_method')
-                        .setLabel('Payment Method')
+                        .setLabel('What Payment Method would you like to use?')
                         .setStyle(TextInputStyle.Short)
-                        .setPlaceholder('PayPal F&F, Crypto, Rewarble...')
+                        .setPlaceholder('Card, PayPal F&F, Crypto, Rewarble...')
                         .setRequired(true)
-                ),
-                new ActionRowBuilder().addComponents(
-                    new TextInputBuilder()
-                        .setCustomId('purchase_orderid')
-                        .setLabel('Order/Transaction ID (If already paid)')
-                        .setStyle(TextInputStyle.Short)
-                        .setPlaceholder('Leave blank if opening a new order')
-                        .setRequired(false)
                 )
             );
             return await interaction.showModal(modal);
         }
 
         if (interaction.customId === 'ticket_resell') {
-            const modal = new ModalBuilder()
-                .setCustomId('modal_ticket_resell')
-                .setTitle('🤝 GMH Reseller Application');
-
+            const modal = new ModalBuilder().setCustomId('modal_ticket_resell').setTitle('📝 Ticket Information Form');
             modal.addComponents(
                 new ActionRowBuilder().addComponents(
                     new TextInputBuilder()
                         .setCustomId('resell_products')
-                        .setLabel('Which tools are you looking to stock?')
+                        .setLabel('What Products would you like to sell?')
                         .setStyle(TextInputStyle.Paragraph)
                         .setPlaceholder('List software titles...')
                         .setRequired(true)
@@ -395,113 +419,263 @@ client.on('interactionCreate', async (interaction) => {
                 new ActionRowBuilder().addComponents(
                     new TextInputBuilder()
                         .setCustomId('resell_platform')
-                        .setLabel('Storefront or Server Link')
+                        .setLabel('Send the website or Server here.')
                         .setStyle(TextInputStyle.Short)
-                        .setPlaceholder('https://discord.gg/... or https://yourstore.com')
+                        .setPlaceholder('https://...')
                         .setRequired(true)
-                ),
-                new ActionRowBuilder().addComponents(
-                    new TextInputBuilder()
-                        .setCustomId('resell_volume')
-                        .setLabel('Estimated Weekly Sales Volume')
-                        .setStyle(TextInputStyle.Short)
-                        .setPlaceholder('e.g. 15-20 keys weekly')
-                        .setRequired(false)
                 )
             );
             return await interaction.showModal(modal);
         }
 
         if (interaction.customId === 'ticket_hwid') {
-            const modal = new ModalBuilder()
-                .setCustomId('modal_ticket_hwid')
-                .setTitle('🔄 GMH HWID Reset Request');
-
+            const modal = new ModalBuilder().setCustomId('modal_ticket_hwid').setTitle('📝 Ticket Information Form');
             modal.addComponents(
                 new ActionRowBuilder().addComponents(
                     new TextInputBuilder()
                         .setCustomId('hwid_product')
-                        .setLabel('Tool Name')
+                        .setLabel('What Product you needing a HWID Reset for?')
                         .setStyle(TextInputStyle.Short)
-                        .setPlaceholder('e.g. Ancient COD External')
-                        .setRequired(true)
-                ),
-                new ActionRowBuilder().addComponents(
-                    new TextInputBuilder()
-                        .setCustomId('hwid_key')
-                        .setLabel('Active License Key')
-                        .setStyle(TextInputStyle.Short)
-                        .setPlaceholder('Paste your full license key')
+                        .setPlaceholder('Enter software name...')
                         .setRequired(true)
                 ),
                 new ActionRowBuilder().addComponents(
                     new TextInputBuilder()
                         .setCustomId('hwid_reason')
-                        .setLabel('Reason for Hardware Change')
+                        .setLabel('Why do you need a HWID Reset?')
                         .setStyle(TextInputStyle.Paragraph)
-                        .setPlaceholder('e.g. Upgraded SSD/Motherboard, reinstalled OS...')
+                        .setPlaceholder('e.g. Reinstalled Windows, changed motherboard...')
+                        .setRequired(true)
+                ),
+                new ActionRowBuilder().addComponents(
+                    new TextInputBuilder()
+                        .setCustomId('hwid_key')
+                        .setLabel('Put your key here.')
+                        .setStyle(TextInputStyle.Short)
+                        .setPlaceholder('Paste your license key...')
                         .setRequired(true)
                 )
             );
             return await interaction.showModal(modal);
         }
 
+        // ---------------------------------------------------------
+        // 2. TICKET CONTROLS (CLAIM / UNCLAIM / CLOSE)
+        // ---------------------------------------------------------
+        const channel = interaction.channel;
+        const member = interaction.member;
+
+        const isFullStaff = member.roles.cache.has(CONFIG.STAFF_ROLE_ID);
+        const isTrialStaff = member.roles.cache.has(CONFIG.TRIAL_STAFF_ROLE_ID);
+        const isAdmin = CONFIG.ADMIN_ROLE_IDS.some(id => member.roles.cache.has(id) || member.id === id) || 
+                        member.permissions.has(PermissionsBitField.Flags.Administrator);
+
+        if (['claim_ticket', 'unclaim_ticket', 'close_ticket'].includes(interaction.customId)) {
+            if (!isFullStaff && !isTrialStaff && !isAdmin) {
+                return interaction.reply({ content: '❌ Only support staff can perform this action.', ephemeral: true });
+            }
+        }
+
+        // CLAIM ACTION
+        if (interaction.customId === 'claim_ticket') {
+            const ticketData = activeTickets.get(channel.id);
+            if (ticketData?.claimedBy) {
+                return interaction.reply({ content: `⚠️ Already claimed by <@${ticketData.claimedBy}>.`, ephemeral: true });
+            }
+
+            // Case A: Trial Staff Claim
+            if (isTrialStaff && !isFullStaff && !isAdmin) {
+                await channel.permissionOverwrites.edit(member.id, {
+                    ViewChannel: true,
+                    SendMessages: true,
+                    ReadMessageHistory: true,
+                    AttachFiles: true
+                });
+
+                activeTickets.set(channel.id, { ...ticketData, claimedBy: member.id, isTrial: true });
+
+                const claimEmbed = new EmbedBuilder()
+                    .setDescription(`🙋 **${member.user.tag}** (Trial Staff) has claimed this ticket.\nSenior staff can still view and participate.`)
+                    .setColor(0x5865F2);
+
+                await interaction.update({ components: [buildTicketControlRow(true)] });
+                return await channel.send({ embeds: [claimEmbed] });
+            }
+
+            // Case B: Full Staff / Admin Claim
+            await channel.permissionOverwrites.edit(member.id, {
+                ViewChannel: true,
+                SendMessages: true,
+                ReadMessageHistory: true,
+                AttachFiles: true
+            });
+
+            if (guild.roles.cache.has(CONFIG.STAFF_ROLE_ID)) {
+                await channel.permissionOverwrites.edit(CONFIG.STAFF_ROLE_ID, { ViewChannel: false });
+            }
+            if (guild.roles.cache.has(CONFIG.TRIAL_STAFF_ROLE_ID)) {
+                await channel.permissionOverwrites.edit(CONFIG.TRIAL_STAFF_ROLE_ID, { ViewChannel: false });
+            }
+
+            for (const adminId of CONFIG.ADMIN_ROLE_IDS) {
+                if (guild.roles.cache.has(adminId)) {
+                    await channel.permissionOverwrites.edit(adminId, { ViewChannel: true, SendMessages: true });
+                }
+            }
+
+            activeTickets.set(channel.id, { ...ticketData, claimedBy: member.id, isTrial: false });
+
+            const claimEmbed = new EmbedBuilder()
+                .setDescription(`🔒 **${member.user.tag}** has claimed this ticket.\nChannel visibility has been locked to this staff member and admins.`)
+                .setColor(0x2ECC71);
+
+            await interaction.update({ components: [buildTicketControlRow(true)] });
+            return await channel.send({ embeds: [claimEmbed] });
+        }
+
+        // UNCLAIM ACTION
+        if (interaction.customId === 'unclaim_ticket') {
+            const ticketData = activeTickets.get(channel.id);
+            if (!ticketData?.claimedBy) {
+                return interaction.reply({ content: '⚠️ This ticket is not currently claimed.', ephemeral: true });
+            }
+
+            if (ticketData.claimedBy !== member.id && !isAdmin) {
+                return interaction.reply({ content: '❌ Only the assigned staff member or an Admin can unclaim.', ephemeral: true });
+            }
+
+            if (guild.roles.cache.has(CONFIG.STAFF_ROLE_ID)) {
+                await channel.permissionOverwrites.edit(CONFIG.STAFF_ROLE_ID, { ViewChannel: true, SendMessages: true });
+            }
+            if (guild.roles.cache.has(CONFIG.TRIAL_STAFF_ROLE_ID)) {
+                await channel.permissionOverwrites.edit(CONFIG.TRIAL_STAFF_ROLE_ID, { ViewChannel: true, SendMessages: true });
+            }
+
+            await channel.permissionOverwrites.delete(ticketData.claimedBy).catch(() => {});
+
+            activeTickets.set(channel.id, { ...ticketData, claimedBy: null, isTrial: false });
+
+            const unclaimEmbed = new EmbedBuilder()
+                .setDescription(`🔄 Ticket unclaimed by **${member.user.tag}**.\nTicket is now available for any staff member to assist.`)
+                .setColor(0xF1C40F);
+
+            await interaction.update({ components: [buildTicketControlRow(false)] });
+            return await channel.send({ embeds: [unclaimEmbed] });
+        }
+
+        // CLOSE ACTION & TRANSCRIPT
         if (interaction.customId === 'close_ticket') {
-            await interaction.reply('🔒 Closing this ticket in 5 seconds...');
-            setTimeout(() => {
-                interaction.channel.delete().catch(() => {});
-            }, 5000);
+            await interaction.reply('📁 Generating transcript and closing ticket...');
+
+            const ticketData = activeTickets.get(channel.id);
+            
+            // Extract owner ID from channel topic fallback if bot restarted
+            let ownerId = ticketData?.ticketOwnerId;
+            if (!ownerId && channel.topic) {
+                const match = channel.topic.match(/^([0-9]+)\|Support/);
+                if (match) ownerId = match[1];
+            }
+
+            try {
+                const transcriptAttachment = await discordTranscripts.createTranscript(channel, {
+                    limit: -1,
+                    fileName: `transcript-${channel.name}.html`,
+                    saveImages: true,
+                    poweredBy: false
+                });
+
+                const closeSummaryEmbed = new EmbedBuilder()
+                    .setTitle('🔒 Ticket Closed')
+                    .addFields(
+                        { name: 'Channel', value: `\`#${channel.name}\``, inline: true },
+                        { name: 'Closed By', value: `${interaction.user} (\`${interaction.user.tag}\`)`, inline: true },
+                        { name: 'Ticket Owner', value: ownerId ? `<@${ownerId}>` : 'Unknown', inline: true },
+                        { name: 'Claimed By', value: ticketData?.claimedBy ? `<@${ticketData.claimedBy}>` : 'Unclaimed', inline: true }
+                    )
+                    .setColor(0xE74C3C)
+                    .setTimestamp();
+
+                // Log transcript to staff channel
+                const logChannel = guild.channels.cache.get(CONFIG.TRANSCRIPT_LOG_CHANNEL_ID) || await guild.channels.fetch(CONFIG.TRANSCRIPT_LOG_CHANNEL_ID).catch(() => null);
+                if (logChannel) {
+                    await logChannel.send({
+                        embeds: [closeSummaryEmbed],
+                        files: [transcriptAttachment]
+                    });
+                }
+
+                // Send transcript to ticket owner DM
+                if (ownerId) {
+                    const owner = await client.users.fetch(ownerId).catch(() => null);
+                    if (owner) {
+                        const dmEmbed = new EmbedBuilder()
+                            .setTitle(`📄 Support Transcript • ${guild.name}`)
+                            .setDescription(`Your support ticket \`#${channel.name}\` has been closed.\nAn offline HTML copy of your chat history is attached below.`)
+                            .setColor(0x00E5FF)
+                            .setTimestamp();
+
+                        await owner.send({
+                            embeds: [dmEmbed],
+                            files: [transcriptAttachment]
+                        }).catch(() => console.log(`Could not DM transcript to user ${ownerId}.`));
+                    }
+                }
+
+                await channel.send('✅ Transcript saved. Deleting channel in 5 seconds...');
+                activeTickets.delete(channel.id);
+                setTimeout(() => channel.delete().catch(() => {}), 5000);
+
+            } catch (err) {
+                console.error('[TRANSCRIPT ERROR]:', err);
+                await channel.send(`❌ Error generating transcript: \`${err.message}\`. Closing anyway in 5s...`);
+                setTimeout(() => channel.delete().catch(() => {}), 5000);
+            }
             return;
         }
     }
 
     // -------------------------------------------------------------
-    // 2. MODAL SUBMISSIONS -> SPAWN PRIVATE TICKET ROOM
+    // 3. TICKET CREATION
     // -------------------------------------------------------------
     if (interaction.isModalSubmit()) {
-        const guild = interaction.guild;
-        const user = interaction.user;
-
         let ticketType = 'Ticket';
         let channelPrefix = 'ticket';
         let embedColor = 0x00E5FF;
         const fields = [];
 
         if (interaction.customId === 'modal_ticket_general') {
-            ticketType = 'Technical Support';
-            channelPrefix = 'tech';
+            ticketType = 'General Support';
+            channelPrefix = 'general';
             embedColor = 0x5865F2;
             fields.push(
-                { name: 'Software', value: interaction.fields.getTextInputValue('general_tool') || 'N/A', inline: true },
-                { name: 'OS & Defender', value: interaction.fields.getTextInputValue('general_sys') || 'N/A', inline: true },
-                { name: 'Issue Details', value: interaction.fields.getTextInputValue('general_reason') || 'N/A' }
+                { name: '1️⃣ Software / Game', value: interaction.fields.getTextInputValue('general_tool') || 'N/A' },
+                { name: '2️⃣ Windows & Defender', value: interaction.fields.getTextInputValue('general_sys') || 'N/A' },
+                { name: '3️⃣ Issue Description', value: interaction.fields.getTextInputValue('general_reason') || 'N/A' }
             );
         } else if (interaction.customId === 'modal_ticket_purchase') {
-            ticketType = 'Purchase Order';
+            ticketType = 'Purchase Support';
             channelPrefix = 'buy';
             embedColor = 0x2ECC71;
             fields.push(
-                { name: 'Product', value: interaction.fields.getTextInputValue('purchase_item') || 'N/A', inline: true },
-                { name: 'Payment Method', value: interaction.fields.getTextInputValue('purchase_method') || 'N/A', inline: true },
-                { name: 'Order/TX ID', value: interaction.fields.getTextInputValue('purchase_orderid') || 'Not Provided' }
+                { name: '1️⃣ Product to Purchase', value: interaction.fields.getTextInputValue('purchase_item') || 'N/A' },
+                { name: '2️⃣ Payment Method', value: interaction.fields.getTextInputValue('purchase_method') || 'N/A' }
             );
         } else if (interaction.customId === 'modal_ticket_resell') {
-            ticketType = 'Reseller Inquiry';
+            ticketType = 'Reselling Support';
             channelPrefix = 'resell';
             embedColor = 0x95A5A6;
             fields.push(
-                { name: 'Products', value: interaction.fields.getTextInputValue('resell_products') || 'N/A' },
-                { name: 'Store Link', value: interaction.fields.getTextInputValue('resell_platform') || 'N/A', inline: true },
-                { name: 'Est. Volume', value: interaction.fields.getTextInputValue('resell_volume') || 'N/A', inline: true }
+                { name: '1️⃣ Products to Resell', value: interaction.fields.getTextInputValue('resell_products') || 'N/A' },
+                { name: '2️⃣ Store / Server Link', value: interaction.fields.getTextInputValue('resell_platform') || 'N/A' }
             );
         } else if (interaction.customId === 'modal_ticket_hwid') {
             ticketType = 'HWID Reset';
-            channelPrefix = 'hwid';
+            channelPrefix = 'hwid-reset';
             embedColor = 0xE74C3C;
             fields.push(
-                { name: 'Software', value: interaction.fields.getTextInputValue('hwid_product') || 'N/A', inline: true },
-                { name: 'License Key', value: `\`\`\`${interaction.fields.getTextInputValue('hwid_key') || 'N/A'}\`\`\`` },
-                { name: 'Reason', value: interaction.fields.getTextInputValue('hwid_reason') || 'N/A' }
+                { name: '1️⃣ What Product you needing a HWID Reset for?', value: interaction.fields.getTextInputValue('hwid_product') || 'N/A' },
+                { name: '2️⃣ Why do you need a HWID Reset?', value: interaction.fields.getTextInputValue('hwid_reason') || 'N/A' },
+                { name: '3️⃣ Put your key here.', value: `\`\`\`${interaction.fields.getTextInputValue('hwid_key') || 'N/A'}\`\`\`` }
             );
         }
 
@@ -516,58 +690,75 @@ client.on('interactionCreate', async (interaction) => {
                 targetCategory = guild.channels.cache.get(CONFIG.TICKET_CATEGORY_ID) || await guild.channels.fetch(CONFIG.TICKET_CATEGORY_ID).catch(() => null);
             }
 
+            const permissionOverwrites = [
+                { id: guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
+                { id: user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ReadMessageHistory, PermissionsBitField.Flags.AttachFiles] },
+                { id: client.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ManageChannels] }
+            ];
+
+            if (guild.roles.cache.has(CONFIG.STAFF_ROLE_ID)) {
+                permissionOverwrites.push({ id: CONFIG.STAFF_ROLE_ID, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] });
+            }
+            if (guild.roles.cache.has(CONFIG.TRIAL_STAFF_ROLE_ID)) {
+                permissionOverwrites.push({ id: CONFIG.TRIAL_STAFF_ROLE_ID, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] });
+            }
+            for (const adminId of CONFIG.ADMIN_ROLE_IDS) {
+                if (guild.roles.cache.has(adminId)) {
+                    permissionOverwrites.push({ id: adminId, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] });
+                }
+            }
+
             const ticketChannel = await guild.channels.create({
                 name: channelName,
                 type: ChannelType.GuildText,
                 parent: targetCategory && targetCategory.type === ChannelType.GuildCategory ? targetCategory.id : null,
-                permissionOverwrites: [
-                    { id: guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
-                    { id: user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ReadMessageHistory, PermissionsBitField.Flags.AttachFiles] },
-                    { id: client.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ManageChannels] },
-                    ...(CONFIG.STAFF_ROLE_ID && guild.roles.cache.has(CONFIG.STAFF_ROLE_ID) ? [{ id: CONFIG.STAFF_ROLE_ID, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] }] : [])
-                ]
+                topic: `${user.id}|Support`,
+                permissionOverwrites
             });
 
-            const ticketEmbed = new EmbedBuilder()
-                .setAuthor({ name: `${user.tag} | ${ticketType}`, iconURL: user.displayAvatarURL() })
-                .setTitle(`🎫 ${ticketType}`)
-                .setDescription(`Staff has been notified. Attach screenshots or loader crash logs below while you wait.`)
+            activeTickets.set(ticketChannel.id, {
+                claimedBy: null,
+                ticketOwnerId: user.id,
+                type: ticketType
+            });
+
+            const supportHeaderEmbed = new EmbedBuilder()
+                .setTitle('Ticket Support')
+                .setDescription(`Welcome to your ticket, ${user}!\nHow can we help you today?\n\n\`Channel ID: ${ticketChannel.id}\``)
+                .setColor(0x5865F2);
+
+            const infoEmbed = new EmbedBuilder()
+                .setTitle('📝 Additional Information')
+                .setDescription(`Form answers submitted by **${user.tag}**.`)
                 .setColor(embedColor)
                 .addFields(fields)
-                .setFooter({ text: 'GameMarket Hub • Ticket Automation' })
+                .setFooter({ text: 'GameMarket Hub • Ticket System' })
                 .setTimestamp();
-
-            const closeRow = new ActionRowBuilder().addComponents(
-                new ButtonBuilder()
-                    .setCustomId('close_ticket')
-                    .setLabel('Close Ticket')
-                    .setStyle(ButtonStyle.Danger)
-                    .setEmoji('🔒')
-            );
 
             await ticketChannel.send({
                 content: `${user} <@&${CONFIG.STAFF_ROLE_ID}>`,
-                embeds: [ticketEmbed],
-                components: [closeRow]
+                embeds: [supportHeaderEmbed],
+                components: [buildTicketControlRow(false)]
+            });
+
+            await ticketChannel.send({
+                embeds: [infoEmbed]
             });
 
             await interaction.editReply({
-                content: `✅ Your ticket has been generated: ${ticketChannel}`
+                content: `✅ Your ticket has been opened: ${ticketChannel}`
             });
 
         } catch (err) {
-            console.error('Error creating ticket channel:', err);
+            console.error('Error opening ticket channel:', err);
             await interaction.editReply({ content: `❌ Could not open ticket: \`${err.message}\`` });
         }
-        return;
     }
 
     // -------------------------------------------------------------
-    // 3. STAFF APPLICANT WORKFLOW
+    // 4. STAFF APPLICATIONS
     // -------------------------------------------------------------
     if (interaction.isButton() && interaction.customId === 'start_staff_application') {
-        const guild = interaction.guild;
-        const user = interaction.user;
         const sanitizedUsername = user.username.toLowerCase().replace(/[^a-z0-9]/g, '') || 'applicant';
         const channelName = `app-${sanitizedUsername}`;
 
@@ -680,7 +871,6 @@ client.on('interactionCreate', async (interaction) => {
 
     if (interaction.isButton() && interaction.customId.startsWith('accept_app_')) {
         const applicantId = interaction.customId.replace('accept_app_', '');
-        const guild = interaction.guild;
 
         if (!interaction.member.permissions.has(PermissionsBitField.Flags.ManageChannels)) {
             return interaction.reply({ content: '❌ Need Manage Channels permission.', ephemeral: true });
