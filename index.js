@@ -62,6 +62,17 @@ const memberInviters = new Map();
 const activeTickets = new Map();
 const draftAnnouncements = new Map();
 
+// Helper: Parse human-readable duration strings (e.g. 10m, 2h, 1d)
+function parseDuration(str) {
+    if (!str) return null;
+    const match = str.match(/^(\d+)([smhd])$/i);
+    if (!match) return null;
+    const val = parseInt(match[1]);
+    const unit = match[2].toLowerCase();
+    const mults = { s: 1000, m: 60 * 1000, h: 60 * 60 * 1000, d: 24 * 60 * 60 * 1000 };
+    return val * mults[unit];
+}
+
 // 9-Question Staff Application Flow
 const APP_QUESTIONS = [
     { title: "Age & Hardware", question: "**Question 1/9:** How old are you, and do you own a Windows PC that you can use while providing support?" },
@@ -153,10 +164,138 @@ function buildTicketControlRow(isClaimed = false) {
 client.on('messageCreate', async (message) => {
     if (message.author.bot || !message.guild) return;
 
-    const args = message.content.split(' ');
+    const args = message.content.trim().split(/ +/);
     const command = args[0].toLowerCase();
 
+    const isStaff = message.member.roles.cache.has(CONFIG.STAFF_ROLE_ID);
+    const isTrialStaff = message.member.roles.cache.has(CONFIG.TRIAL_STAFF_ROLE_ID);
+    const isAdmin = CONFIG.ADMIN_ROLE_IDS.some(id => message.member.roles.cache.has(id) || message.author.id === id) ||
+                    message.member.permissions.has(PermissionsBitField.Flags.Administrator);
+
     if (command === '!ping') return message.reply('🏓 Pong!');
+
+    // -------------------------------------------------------------
+    // AUTOMATED ORDER DELIVERY COMMAND
+    // -------------------------------------------------------------
+    if (command === '!deliver') {
+        if (!isAdmin && !isStaff) {
+            return message.reply('❌ You do not have permission to use this command.');
+        }
+
+        const targetMember = message.mentions.members.first();
+        if (!targetMember) {
+            return message.reply('❌ Specify a valid target user.\n**Usage:** `!deliver @user <product/license key>`');
+        }
+
+        // Clean out command call and mentions so multi-word keys aren't broken
+        const deliveryPayload = message.content
+            .replace(/^![a-zA-Z0-9_-]+/, '')
+            .replace(/<@!?[0-9]+>/g, '')
+            .trim();
+
+        if (!deliveryPayload) {
+            return message.reply('❌ Please provide the license key or credentials to deliver.');
+        }
+
+        try {
+            const deliveryEmbed = new EmbedBuilder()
+                .setTitle('📦 Order Delivered • GameMarket Hub')
+                .setDescription('Thank you for purchasing with **GameMarket Hub**!\nYour product credentials and instructions are provided below.')
+                .addFields(
+                    { name: 'Product / License Key', value: `\`\`\`${deliveryPayload}\`\`\`` },
+                    { name: 'Storefront', value: `[gmh-shop.com](${CONFIG.DEFAULT_STORE_URL})`, inline: true },
+                    { name: 'Support', value: `[Open Support Ticket](${CONFIG.TICKET_CHANNEL_LINK})`, inline: true }
+                )
+                .setColor(0x00E5FF)
+                .setFooter({ text: 'GameMarket Hub • Automated Delivery System' })
+                .setTimestamp();
+
+            await targetMember.send({ embeds: [deliveryEmbed] });
+            return await message.reply(`✅ Successfully delivered credentials to **${targetMember.user.tag}** via Direct Message.`);
+        } catch (err) {
+            console.error('[DELIVER ERROR]:', err);
+            return await message.reply(`⚠️ Could not send DM to **${targetMember.user.tag}**. Their Direct Messages are locked/disabled.`);
+        }
+    }
+
+    // -------------------------------------------------------------
+    // MODERATION ACTIONS (TIMEOUT, UNTIMEOUT, KICK, BAN)
+    // -------------------------------------------------------------
+    if (command === '!timeout' || command === '!mute') {
+        if (!message.member.permissions.has(PermissionsBitField.Flags.ModerateMembers) && !isAdmin) {
+            return message.reply('❌ You lack permissions to moderate members.');
+        }
+
+        const target = message.mentions.members.first() || message.guild.members.cache.get(args[1]);
+        if (!target) return message.reply('❌ **Usage:** `!timeout @user 10m [reason]`');
+        if (!target.moderatable) return message.reply('❌ Cannot timeout this user due to role hierarchy.');
+
+        const durationMs = parseDuration(args[2]);
+        if (!durationMs || durationMs > 28 * 24 * 60 * 60 * 1000) {
+            return message.reply('❌ Provide a valid duration up to 28 days (e.g. `60s`, `10m`, `2h`, `1d`).');
+        }
+
+        const reason = args.slice(3).join(' ') || 'No reason provided';
+        try {
+            await target.timeout(durationMs, `${reason} | By: ${message.author.tag}`);
+            return message.channel.send(`🤐 **${target.user.tag}** has been timed out for **${args[2]}**.\n**Reason:** ${reason}`);
+        } catch (err) {
+            return message.reply(`❌ Failed to timeout user: ${err.message}`);
+        }
+    }
+
+    if (command === '!untimeout' || command === '!unmute') {
+        if (!message.member.permissions.has(PermissionsBitField.Flags.ModerateMembers) && !isAdmin) {
+            return message.reply('❌ You lack permissions to moderate members.');
+        }
+
+        const target = message.mentions.members.first() || message.guild.members.cache.get(args[1]);
+        if (!target) return message.reply('❌ **Usage:** `!untimeout @user`');
+        if (!target.moderatable) return message.reply('❌ Cannot modify this user.');
+
+        try {
+            await target.timeout(null, `Untimeout by ${message.author.tag}`);
+            return message.channel.send(`🔊 Removed timeout from **${target.user.tag}**.`);
+        } catch (err) {
+            return message.reply(`❌ Failed to remove timeout: ${err.message}`);
+        }
+    }
+
+    if (command === '!kick') {
+        if (!message.member.permissions.has(PermissionsBitField.Flags.KickMembers) && !isAdmin) {
+            return message.reply('❌ You lack permissions to kick members.');
+        }
+
+        const target = message.mentions.members.first() || message.guild.members.cache.get(args[1]);
+        if (!target) return message.reply('❌ **Usage:** `!kick @user [reason]`');
+        if (!target.kickable) return message.reply('❌ Cannot kick this user.');
+
+        const reason = args.slice(2).join(' ') || 'No reason provided';
+        try {
+            await target.kick(`${reason} | By: ${message.author.tag}`);
+            return message.channel.send(`👢 Kicked **${target.user.tag}**.\n**Reason:** ${reason}`);
+        } catch (err) {
+            return message.reply(`❌ Failed to kick user: ${err.message}`);
+        }
+    }
+
+    if (command === '!ban') {
+        if (!message.member.permissions.has(PermissionsBitField.Flags.BanMembers) && !isAdmin) {
+            return message.reply('❌ You lack permissions to ban members.');
+        }
+
+        const target = message.mentions.members.first() || message.guild.members.cache.get(args[1]);
+        if (!target) return message.reply('❌ **Usage:** `!ban @user [reason]`');
+        if (!target.bannable) return message.reply('❌ Cannot ban this user.');
+
+        const reason = args.slice(2).join(' ') || 'No reason provided';
+        try {
+            await target.ban({ reason: `${reason} | By: ${message.author.tag}` });
+            return message.channel.send(`🔨 Permanently banned **${target.user.tag}**.\n**Reason:** ${reason}`);
+        } catch (err) {
+            return message.reply(`❌ Failed to ban user: ${err.message}`);
+        }
+    }
 
     // Setup news dispatcher panel in #staff-dispatch
     if (command === '!setup-news') {
@@ -211,6 +350,35 @@ client.on('messageCreate', async (message) => {
         );
 
         await message.channel.send({ embeds: [embed], components: [row] });
+        await message.delete().catch(() => {});
+    }
+
+    // Spawn Staff Application Hub
+    if (command === '!send-apply') {
+        if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) return;
+
+        const applyEmbed = new EmbedBuilder()
+            .setTitle('💼 GMH • Staff Recruitment')
+            .setDescription(
+                "Interested in joining the **GameMarket Hub** support and moderation team?\n\n" +
+                "**Requirements:**\n" +
+                "• Active daily availability\n" +
+                "• Functional Windows PC for technical assistance\n" +
+                "• Clean conduct and strong communication\n\n" +
+                "Click below to open your private recruitment channel."
+            )
+            .setColor(0x00E5FF)
+            .setFooter({ text: 'GameMarket Hub • Staff Applications' });
+
+        const applyRow = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId('btn_open_app')
+                .setLabel('Apply for Staff')
+                .setStyle(ButtonStyle.Primary)
+                .setEmoji('📝')
+        );
+
+        await message.channel.send({ embeds: [applyEmbed], components: [applyRow] });
         await message.delete().catch(() => {});
     }
 
@@ -395,7 +563,39 @@ client.on('interactionCreate', async (interaction) => {
         }
 
         // -------------------------------------------------------------
-        // 2. TICKETS MODAL OPENERS
+        // 2. STAFF RECRUITMENT CREATION
+        // -------------------------------------------------------------
+        if (interaction.isButton() && interaction.customId === 'btn_open_app') {
+            await interaction.deferReply({ ephemeral: true });
+
+            const guild = interaction.guild;
+            const user = interaction.user;
+            const channelName = `apply-${user.username.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 10)}`;
+
+            const appChannel = await guild.channels.create({
+                name: channelName,
+                type: ChannelType.GuildText,
+                parent: CONFIG.APP_CATEGORY_ID || null,
+                permissionOverwrites: [
+                    { id: guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
+                    { id: user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ReadMessageHistory] },
+                    { id: client.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ManageChannels] }
+                ]
+            });
+
+            const questionsText = APP_QUESTIONS.map(q => `${q.question}`).join('\n\n');
+            const appEmbed = new EmbedBuilder()
+                .setTitle(`Staff Application • ${user.tag}`)
+                .setDescription(`Welcome ${user}! Please answer all questions below in this channel.\n\n${questionsText}`)
+                .setColor(0x00E5FF)
+                .setFooter({ text: 'Answer each question thoroughly.' });
+
+            await appChannel.send({ embeds: [appEmbed] });
+            return await interaction.editReply({ content: `✅ Application channel opened: ${appChannel}` });
+        }
+
+        // -------------------------------------------------------------
+        // 3. TICKETS MODAL OPENERS
         // -------------------------------------------------------------
         if (interaction.isButton()) {
             if (interaction.customId === 'ticket_general') {
@@ -614,7 +814,7 @@ client.on('interactionCreate', async (interaction) => {
         }
 
         // -------------------------------------------------------------
-        // 3. TICKET FORM SUBMISSIONS
+        // 4. TICKET FORM SUBMISSIONS
         // -------------------------------------------------------------
         if (interaction.isModalSubmit()) {
             const guild = interaction.guild;
