@@ -1,4 +1,4 @@
-import { 
+const { 
     Client, 
     GatewayIntentBits, 
     Partials, 
@@ -12,7 +12,7 @@ import {
     TextInputBuilder, 
     TextInputStyle,
     AttachmentBuilder
-} from 'discord.js';
+} = require('discord.js');
 
 const client = new Client({
     intents: [
@@ -28,25 +28,24 @@ const client = new Client({
 // GLOBAL CONFIGURATION
 // =============================================================
 const CONFIG = {
-    TOKEN: process.env.DISCORD_TOKEN || 'YOUR_BOT_TOKEN_HERE',
+    TOKEN: process.env.DISCORD_TOKEN,
     PREFIX: '!',
     STORE_URL: 'https://gmh-shop.com/',
-    // Direct Discord internal CDN link from #welcome
     PERMANENT_BANNER_URL: 'https://cdn.discordapp.com/attachments/1533856623108292811/1546231062743752714/Gemini_Generated_Image_2rln5o2rln5o2rln.jpg',
     
     // Server Role IDs
-    ADMIN_ROLE_IDS: ['1542980594408099904'],     // Admin / Owner
-    STAFF_ROLE_ID: '1542980594408099902',        // Senior / Full Staff
-    TRIAL_STAFF_ROLE_ID: '1542980594408099901',  // Trial Staff
+    ADMIN_ROLE_IDS: ['1542980594408099904'],
+    STAFF_ROLE_ID: '1542980594408099902',
+    TRIAL_STAFF_ROLE_ID: '1542980594408099901',
     
-    // Optional Category & Channel Targets (leave null if using current channels)
+    // Optional Category & Channel Targets (null uses current channels)
     TICKET_CATEGORY_ID: null,
     APP_CATEGORY_ID: null,
     TRANSCRIPTS_CHANNEL_ID: null,
     NEWS_CHANNEL_ID: null
 };
 
-// 9 Staff Recruitment Screening Questions
+// 9 Staff Screening Questions
 const APP_QUESTIONS = [
     "Question 1/9: How old are you, and do you own a Windows PC that you can use while providing support?",
     "Question 2/9: What is your timezone/country, and what specific hours of the day are you active?",
@@ -60,7 +59,7 @@ const APP_QUESTIONS = [
 ];
 
 client.once('ready', () => {
-    console.log(`[SYSTEM] /dev/null operational as ${client.user.tag}`);
+    console.log(`[SYSTEM] dev/null online as ${client.user.tag}`);
     client.user.setActivity('gmh-shop.com', { type: 3 });
 });
 
@@ -69,7 +68,7 @@ function parseDuration(str) {
     if (!str) return null;
     const match = str.match(/^(\d+)(s|m|h|d)$/);
     if (!match) return null;
-    const val = parseInt(match[1]);
+    const val = parseInt(match[1], 10);
     const unit = match[2];
     if (unit === 's') return val * 1000;
     if (unit === 'm') return val * 60 * 1000;
@@ -100,14 +99,14 @@ client.on('messageCreate', async (message) => {
         return message.reply(`🏓 Pong! Bot latency: \`${client.ws.ping}ms\``);
     }
 
-    // 1. Spawner: Announcement Center
+    // 1. Spawner: Announcement Dispatcher
     if (cmd === 'setup-news') {
         if (!isAdmin) return message.reply('❌ Admin permission required.');
         await message.delete().catch(() => {});
 
         const embed = new EmbedBuilder()
-            .setTitle('📢 Announcement Dispatcher')
-            .setDescription('Click below to create an official server update embed.\n\n• Permanent wide hero banner attaches automatically\n• Product URL, store links, and ticket buttons pre-configured\n• Direct target ping options')
+            .setTitle('📢 News & Announcement Dispatcher')
+            .setDescription('Click below to generate a standardized announcement embed.\n\n• Permanent wide hero banner attaches automatically\n• Product URL, store links, and ticket buttons pre-configured\n• Direct target ping options')
             .setColor(0x00E5FF);
 
         const row = new ActionRowBuilder().addComponents(
@@ -164,7 +163,7 @@ client.on('messageCreate', async (message) => {
         return message.channel.send({ embeds: [embed], components: [row] });
     }
 
-    // 4. Spawner: Verification
+    // 4. Spawner: Verification Panel
     if (cmd === 'send-verify') {
         if (!isAdmin) return message.reply('❌ Admin permission required.');
         await message.delete().catch(() => {});
@@ -194,11 +193,11 @@ client.on('messageCreate', async (message) => {
         if (!target) return message.reply('❌ Syntax: `!deliver @user <key/credentials>`');
 
         const payload = args.slice(1).join(' ');
-        if (!payload) return message.reply('❌ Please provide the key or payload text to deliver.');
+        if (!payload) return message.reply('❌ Please provide the key or credentials.');
 
         const dmEmbed = new EmbedBuilder()
             .setTitle('📦 Order Delivered • GameMarket Hub')
-            .setDescription(`Thank you for your order!\n\n**License / Credentials:**\n\`\`\`text\n${payload}\n\`\`\`\nNeed setup files or have injection questions? Open a ticket on the server.`)
+            .setDescription(`Thank you for your order!\n\n**License / Credentials:**\n\`\`\`text\n${payload}\n\`\`\`\nNeed setup files or run into loader issues? Head back to the server and open a ticket.`)
             .setColor(0x00E5FF)
             .setFooter({ text: 'Keep this private. Staff will never ask for your key.' })
             .setTimestamp();
@@ -211,7 +210,7 @@ client.on('messageCreate', async (message) => {
         }
     }
 
-    // 6. Moderation: Timeout / Mute
+    // 6. Moderation: Timeout
     if (cmd === 'timeout' || cmd === 'mute') {
         if (!isStaff) return message.reply('❌ Unauthorized.');
 
@@ -236,7 +235,7 @@ client.on('messageCreate', async (message) => {
         return message.reply(`🔇 <@${target.id}> timed out for **${durationStr}** | Reason: *${reason}*`);
     }
 
-    // 7. Moderation: Untimeout / Unmute
+    // 7. Moderation: Untimeout
     if (cmd === 'untimeout' || cmd === 'unmute') {
         if (!isStaff) return message.reply('❌ Unauthorized.');
         const target = message.mentions.members.first();
@@ -273,12 +272,10 @@ client.on('messageCreate', async (message) => {
 });
 
 // =============================================================
-// INTERACTION HANDLER (BUTTONS, MODALS, TICKETS)
+// INTERACTION CONTROLLER (MODALS, BUTTONS, WORKFLOWS)
 // =============================================================
 client.on('interactionCreate', async (interaction) => {
-    // ---------------------------------------------------------
-    // ANNOUNCEMENT MODAL OPEN
-    // ---------------------------------------------------------
+    // 1. OPEN ANNOUNCEMENT MODAL
     if (interaction.isButton() && interaction.customId === 'btn_open_news_modal') {
         const modal = new ModalBuilder()
             .setCustomId('modal_submit_news')
@@ -322,9 +319,7 @@ client.on('interactionCreate', async (interaction) => {
         return await interaction.showModal(modal);
     }
 
-    // ---------------------------------------------------------
-    // ANNOUNCEMENT MODAL SUBMISSION
-    // ---------------------------------------------------------
+    // 2. PROCESS ANNOUNCEMENT SUBMIT
     if (interaction.isModalSubmit() && interaction.customId === 'modal_submit_news') {
         await interaction.deferReply({ ephemeral: true });
 
@@ -358,7 +353,7 @@ client.on('interactionCreate', async (interaction) => {
         const targetChannel = CONFIG.NEWS_CHANNEL_ID ? interaction.guild.channels.cache.get(CONFIG.NEWS_CHANNEL_ID) : interaction.channel;
 
         if (!targetChannel) {
-            return await interaction.editReply({ content: '❌ Could not find target channel for announcement.' });
+            return await interaction.editReply({ content: '❌ Target channel could not be found.' });
         }
 
         await targetChannel.send({
@@ -367,12 +362,10 @@ client.on('interactionCreate', async (interaction) => {
             components: [row]
         });
 
-        return await interaction.editReply({ content: `✅ Announcement published directly to ${targetChannel} with permanent banner.` });
+        return await interaction.editReply({ content: `✅ Announcement dispatched to ${targetChannel} with banner attached.` });
     }
 
-    // ---------------------------------------------------------
-    // STAFF RECRUITMENT GENERATION
-    // ---------------------------------------------------------
+    // 3. STAFF APPLICATION INITIALIZATION
     if (interaction.isButton() && interaction.customId === 'btn_open_app') {
         await interaction.deferReply({ ephemeral: true });
 
@@ -403,9 +396,9 @@ client.on('interactionCreate', async (interaction) => {
         const questionsText = APP_QUESTIONS.join('\n\n');
         const appEmbed = new EmbedBuilder()
             .setTitle(`Staff Application • ${user.tag}`)
-            .setDescription(`Welcome <@${user.id}>! Please answer all questions below in this channel.\n\n${questionsText}`)
+            .setDescription(`Welcome <@${user.id}>! Please answer all questions below directly in this channel.\n\n${questionsText}`)
             .setColor(0x00E5FF)
-            .setFooter({ text: 'Answer each question thoroughly.' });
+            .setFooter({ text: 'Answer thoroughly. Management reviews all responses.' });
 
         const reviewRow = new ActionRowBuilder().addComponents(
             new ButtonBuilder().setCustomId(`app_accept_${user.id}`).setLabel('Accept (Trial Staff)').setStyle(ButtonStyle.Success).setEmoji('✅'),
@@ -417,9 +410,7 @@ client.on('interactionCreate', async (interaction) => {
         return await interaction.editReply({ content: `✅ Application channel opened: ${appChannel}` });
     }
 
-    // ---------------------------------------------------------
-    // APPLICATION REVIEW CONTROLS
-    // ---------------------------------------------------------
+    // 4. APPLICATION REVIEW CONTROLS
     if (interaction.isButton() && interaction.customId.startsWith('app_')) {
         const isAdmin = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator) ||
                         CONFIG.ADMIN_ROLE_IDS.some(id => interaction.member.roles.cache.has(id));
@@ -434,10 +425,10 @@ client.on('interactionCreate', async (interaction) => {
 
             if (member && interaction.guild.roles.cache.has(CONFIG.TRIAL_STAFF_ROLE_ID)) {
                 await member.roles.add(CONFIG.TRIAL_STAFF_ROLE_ID);
-                await member.send(`🎉 Congratulations! Your staff application for **${interaction.guild.name}** was approved. You received the **Trial Staff** role!`).catch(() => {});
+                await member.send(`🎉 Your staff application for **${interaction.guild.name}** was approved! You received the **Trial Staff** role.`).catch(() => {});
             }
 
-            await interaction.reply({ content: `✅ **Accepted.** Assigned Trial Staff to <@${targetUserId}>. Deleting room in 10 seconds...` });
+            await interaction.reply({ content: `✅ **Accepted.** Assigned Trial Staff to <@${targetUserId}>. Deleting room in 10s...` });
             return setTimeout(() => interaction.channel.delete().catch(() => {}), 10000);
         }
 
@@ -446,10 +437,10 @@ client.on('interactionCreate', async (interaction) => {
             const member = await interaction.guild.members.fetch(targetUserId).catch(() => null);
 
             if (member) {
-                await member.send(`Hello. We appreciate your interest in **${interaction.guild.name}**, but management has decided not to move forward at this time.`).catch(() => {});
+                await member.send(`Hello. We appreciate your application for **${interaction.guild.name}**, but management has decided not to proceed at this time.`).catch(() => {});
             }
 
-            await interaction.reply({ content: `❌ **Denied.** Candidate notified. Deleting room in 5 seconds...` });
+            await interaction.reply({ content: `❌ **Denied.** Candidate notified. Deleting room in 5s...` });
             return setTimeout(() => interaction.channel.delete().catch(() => {}), 5000);
         }
 
@@ -459,9 +450,7 @@ client.on('interactionCreate', async (interaction) => {
         }
     }
 
-    // ---------------------------------------------------------
-    // SUPPORT TICKET CREATION
-    // ---------------------------------------------------------
+    // 5. TICKET CREATION
     if (interaction.isButton() && interaction.customId.startsWith('ticket_')) {
         await interaction.deferReply({ ephemeral: true });
 
@@ -500,9 +489,7 @@ client.on('interactionCreate', async (interaction) => {
         return await interaction.editReply({ content: `✅ Ticket opened: ${ticketChannel}` });
     }
 
-    // ---------------------------------------------------------
-    // TICKET CLAIM / UNCLAIM / TRANSCRIPT & CLOSE
-    // ---------------------------------------------------------
+    // 6. TICKET MANAGEMENT (CLAIM, UNCLAIM, CLOSE & TRANSCRIPT)
     if (interaction.isButton() && ['btn_claim_ticket', 'btn_unclaim_ticket', 'btn_close_ticket'].includes(interaction.customId)) {
         const member = interaction.member;
         const isStaffMember = member.permissions.has(PermissionsBitField.Flags.Administrator) ||
@@ -517,7 +504,6 @@ client.on('interactionCreate', async (interaction) => {
             const isSenior = member.permissions.has(PermissionsBitField.Flags.Administrator) || member.roles.cache.has(CONFIG.STAFF_ROLE_ID);
 
             if (isSenior) {
-                // Hide ticket from other staff for privacy
                 await interaction.channel.permissionOverwrites.edit(CONFIG.STAFF_ROLE_ID, { ViewChannel: false });
                 await interaction.channel.permissionOverwrites.edit(member.id, { ViewChannel: true, SendMessages: true });
                 return await interaction.reply({ content: `🔒 **Exclusively Claimed** by <@${member.id}>.` });
@@ -530,11 +516,11 @@ client.on('interactionCreate', async (interaction) => {
             if (interaction.guild.roles.cache.has(CONFIG.STAFF_ROLE_ID)) {
                 await interaction.channel.permissionOverwrites.edit(CONFIG.STAFF_ROLE_ID, { ViewChannel: true, SendMessages: true });
             }
-            return await interaction.reply({ content: '🔄 Ticket unclaimed. Re-opened to all staff.' });
+            return await interaction.reply({ content: '🔄 Ticket unclaimed. Open to all staff.' });
         }
 
         if (interaction.customId === 'btn_close_ticket') {
-            await interaction.reply({ content: '🔒 Closing ticket, compiling logs, and deleting channel...' });
+            await interaction.reply({ content: '🔒 Compiling transcript and closing ticket in 5s...' });
 
             const fetchedMessages = await interaction.channel.messages.fetch({ limit: 100 });
             const logLines = fetchedMessages.reverse().map(m => `[${m.createdAt.toISOString()}] ${m.author.tag}: ${m.cleanContent}`).join('\n');
@@ -550,5 +536,11 @@ client.on('interactionCreate', async (interaction) => {
         }
     }
 });
+
+// Start the client with token check
+if (!CONFIG.TOKEN) {
+    console.error('[FATAL] DISCORD_TOKEN is missing! Set it in your Render Environment Variables or inside CONFIG.TOKEN.');
+    process.exit(1);
+}
 
 client.login(CONFIG.TOKEN);
