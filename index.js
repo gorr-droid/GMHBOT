@@ -33,7 +33,9 @@ const CONFIG = {
     TICKET_CATEGORY_ID: process.env.TICKET_CATEGORY_ID || '1535740055623180388',
     TRANSCRIPT_LOG_CHANNEL_ID: '1546038594613813350',
     APP_CATEGORY_ID: process.env.APP_CATEGORY_ID || '1535740055623180388',
-    APP_LOG_CHANNEL_ID: process.env.APP_LOG_CHANNEL_ID || '1545741112868610068'
+    APP_LOG_CHANNEL_ID: process.env.APP_LOG_CHANNEL_ID || '1545741112868610068',
+    // GUILD MERGERS BACKUP VERIFY LINK
+    VERIFY_LINK: 'https://verify.guildmergers.com/gmhub/gamemarkethub'
 };
 
 const client = new Client({
@@ -171,7 +173,6 @@ client.on('guildMemberAdd', async (member) => {
     } catch (err) {}
 });
 
-// Helper: Control Panel Row
 function buildTicketControlRow(isClaimed = false) {
     return new ActionRowBuilder().addComponents(
         new ButtonBuilder()
@@ -254,6 +255,37 @@ client.on('messageCreate', async (message) => {
         }
     }
 
+    // Custom Server Verification Embed
+    if (command === '!send-verify') {
+        if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) return;
+
+        const verifyUrl = args[1] || CONFIG.VERIFY_LINK;
+
+        const embed = new EmbedBuilder()
+            .setTitle('🛡️ GMH • Verification Required')
+            .setDescription(
+                "Welcome to **GameMarket Hub**!\n\n" +
+                "To access our community channels, ticket support, and shop updates, verify your account below.\n\n" +
+                "• Protects against spam bots & server raids\n" +
+                "• Unlocks all member channels instantly\n" +
+                "• Keeps your account connected to GMH backup systems\n\n" +
+                "Click the button below to authorize and gain access."
+            )
+            .setColor(0x00E5FF)
+            .setFooter({ text: 'GameMarket Hub • Automated Security' });
+
+        const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setLabel('Verify Account')
+                .setStyle(ButtonStyle.Link)
+                .setURL(verifyUrl)
+                .setEmoji('✅')
+        );
+
+        await message.channel.send({ embeds: [embed], components: [row] });
+        await message.delete().catch(() => {});
+    }
+
     // Spawn Staff Applications Panel
     if (command === '!spawn-apps') {
         if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) return;
@@ -284,7 +316,7 @@ client.on('messageCreate', async (message) => {
         await message.delete().catch(() => {});
     }
 
-    // Spawn GMH Ticket Hub
+    // Spawn Support Hub
     if (command === '!spawn-tickets') {
         if (!message.member.permissions.has(PermissionsBitField.Flags.Administrator)) return;
 
@@ -476,14 +508,14 @@ client.on('interactionCreate', async (interaction) => {
             }
         }
 
-        // CLAIM ACTION
+        // CLAIM TICKET
         if (interaction.customId === 'claim_ticket') {
             const ticketData = activeTickets.get(channel.id);
             if (ticketData?.claimedBy) {
                 return interaction.reply({ content: `⚠️ Already claimed by <@${ticketData.claimedBy}>.`, ephemeral: true });
             }
 
-            // Case A: Trial Staff Claim
+            // Case A: Trial Staff Claims
             if (isTrialStaff && !isFullStaff && !isAdmin) {
                 await channel.permissionOverwrites.edit(member.id, {
                     ViewChannel: true,
@@ -502,7 +534,7 @@ client.on('interactionCreate', async (interaction) => {
                 return await channel.send({ embeds: [claimEmbed] });
             }
 
-            // Case B: Full Staff / Admin Claim
+            // Case B: Full Staff Claims (Strict 1-on-1)
             await channel.permissionOverwrites.edit(member.id, {
                 ViewChannel: true,
                 SendMessages: true,
@@ -533,7 +565,7 @@ client.on('interactionCreate', async (interaction) => {
             return await channel.send({ embeds: [claimEmbed] });
         }
 
-        // UNCLAIM ACTION
+        // UNCLAIM TICKET
         if (interaction.customId === 'unclaim_ticket') {
             const ticketData = activeTickets.get(channel.id);
             if (!ticketData?.claimedBy) {
@@ -563,13 +595,12 @@ client.on('interactionCreate', async (interaction) => {
             return await channel.send({ embeds: [unclaimEmbed] });
         }
 
-        // CLOSE ACTION & TRANSCRIPT
+        // CLOSE TICKET & TRANSCRIPT
         if (interaction.customId === 'close_ticket') {
             await interaction.reply('📁 Generating transcript and closing ticket...');
 
             const ticketData = activeTickets.get(channel.id);
             
-            // Extract owner ID from channel topic fallback if bot restarted
             let ownerId = ticketData?.ticketOwnerId;
             if (!ownerId && channel.topic) {
                 const match = channel.topic.match(/^([0-9]+)\|Support/);
@@ -595,7 +626,6 @@ client.on('interactionCreate', async (interaction) => {
                     .setColor(0xE74C3C)
                     .setTimestamp();
 
-                // Log transcript to staff channel
                 const logChannel = guild.channels.cache.get(CONFIG.TRANSCRIPT_LOG_CHANNEL_ID) || await guild.channels.fetch(CONFIG.TRANSCRIPT_LOG_CHANNEL_ID).catch(() => null);
                 if (logChannel) {
                     await logChannel.send({
@@ -604,7 +634,6 @@ client.on('interactionCreate', async (interaction) => {
                     });
                 }
 
-                // Send transcript to ticket owner DM
                 if (ownerId) {
                     const owner = await client.users.fetch(ownerId).catch(() => null);
                     if (owner) {
