@@ -59,38 +59,18 @@ const CONFIG = {
     NUKE_CHANNEL_ID: '1533093897277014157',
     NUKE_INTERVAL_HOURS: 24,
 
-    // Verified Links & Permanent Fallback Media
+    // Verified Links & Permanent Assets
     DEFAULT_STORE_URL: 'https://gmh-shop.com',
-    TICKET_CHANNEL_LINK: 'https://discord.com/channels/1040987039270707231/1533093930730520689',
+    TICKET_CHANNEL_LINK: 'https://discord.com/channels/1040987039270707231/1533093930730520689/1545784377123012621',
     VERIFY_LINK: 'https://verify.guildmergers.com/gmhub/1040987039270707231',
     PERMANENT_BANNER_URL: 'https://cdn.discordapp.com/attachments/1533856623108292811/1546231062743752714/Gemini_Generated_Image_2rln5o2rln5o2rln.jpg'
 };
 
 const BANNED_KEYWORDS = [
-    'cheat',
-    'cheats',
-    'cheater',
-    'cheating',
-    'hack',
-    'hacks',
-    'hacker',
-    'hacking',
-    'spoof',
-    'spoofing',
-    'spoofer',
-    'hwid spoofer',
-    'aimbot',
-    'wallhack',
-    'esp',
-    'triggerbot',
-    'spinbot',
-    'chams',
-    'softaim',
-    'silent aim',
-    'mac changer',
-    'serial cleaner',
-    'hwid unban',
-    'hardware ban bypass'
+    'cheat', 'cheats', 'cheater', 'cheating', 'hack', 'hacks', 'hacker', 'hacking',
+    'spoof', 'spoofing', 'spoofer', 'hwid spoofer', 'aimbot', 'wallhack', 'esp',
+    'triggerbot', 'spinbot', 'chams', 'softaim', 'silent aim', 'mac changer',
+    'serial cleaner', 'hwid unban', 'hardware ban bypass'
 ];
 
 const WARN_MESSAGES = [
@@ -105,20 +85,17 @@ const client = new Client({
         GatewayIntentBits.Guilds,
         GatewayIntentBits.GuildMessages,
         GatewayIntentBits.MessageContent,
-        GatewayIntentBits.GuildMembers,
-        GatewayIntentBits.GuildInvites
+        GatewayIntentBits.GuildMembers
     ],
-    partials: [Partials.Message, Partials.Channel, Partials.Reaction]
+    partials: [Partials.Message, Partials.Channel, Partials.Reaction, Partials.GuildMember]
 });
 
 // Runtime Storage
-const guildInvites = new Map();
 const activeTickets = new Map();
 const draftAnnouncements = new Map();
-const afkUsers = new Map();             // Format: userId -> { reason, timestamp }
-const afkCooldowns = new Map();         // Format: `${authorId}_${targetId}` -> timestamp
+const afkUsers = new Map();             // userId -> { reason, timestamp }
+const afkCooldowns = new Map();         // `${authorId}_${targetId}` -> timestamp
 
-// Helper: Parse human-readable duration strings (e.g. 10m, 2h, 1d)
 function parseDuration(str) {
     if (!str) return null;
     const match = str.match(/^(\d+)([smhd])$/i);
@@ -129,7 +106,6 @@ function parseDuration(str) {
     return val * mults[unit];
 }
 
-// 9-Question Staff Screening Protocol
 const APP_QUESTIONS = [
     { title: "Age & Hardware", question: "**Question 1/9:** How old are you, and do you own a Windows PC that you can use while providing support?" },
     { title: "Timezone & Active Hours", question: "**Question 2/9:** What is your timezone/country, and what specific hours of the day are you active?" },
@@ -148,15 +124,6 @@ client.once('ready', async () => {
     console.log('=========================================');
     client.user.setActivity('gmh-shop.com', { type: 3 });
 
-    for (const [guildId, guild] of client.guilds.cache) {
-        try {
-            const firstInvites = await guild.invites.fetch();
-            const inviteMap = new Collection();
-            firstInvites.forEach(inv => inviteMap.set(inv.code, inv.uses));
-            guildInvites.set(guild.id, inviteMap);
-        } catch (err) {}
-    }
-
     if (CONFIG.NUKE_CHANNEL_ID) {
         const intervalMs = CONFIG.NUKE_INTERVAL_HOURS * 60 * 60 * 1000;
         setInterval(() => {
@@ -169,6 +136,71 @@ client.once('ready', async () => {
             initWorkingHours(client);
         } catch (err) {
             console.error('[WORKING HOURS ERROR]:', err.message);
+        }
+    }
+});
+
+// =============================================================
+// VERIFIED MEMBER WELCOME DM (2 COUPONS + VIP SERVER PERK)
+// =============================================================
+client.on('guildMemberUpdate', async (oldMember, newMember) => {
+    const hadRole = oldMember.roles.cache.has(CONFIG.CUSTOMER_ROLE_ID);
+    const hasRole = newMember.roles.cache.has(CONFIG.CUSTOMER_ROLE_ID);
+
+    if (!hadRole && hasRole) {
+        try {
+            const welcomeEmbed = new EmbedBuilder()
+                .setAuthor({ 
+                    name: 'GameMarket Hub', 
+                    iconURL: newMember.guild.iconURL({ dynamic: true }) || CONFIG.PERMANENT_BANNER_URL 
+                })
+                .setTitle('🎉 Welcome to GameMarket Hub!')
+                .setDescription(
+                    `Hey ${newMember}, thanks for verifying your account!\n\n` +
+                    `To welcome you aboard, we've issued two exclusive discount vouchers for our store:\n\n` +
+                    `🎟️ **Starter Voucher (One-Time Access)**\n` +
+                    `\`\`\`text\nGMH\n\`\`\`\n` +
+                    `• **25% OFF** your order\n` +
+                    `• Valid for **1 single purchase** (best value on larger baskets)\n\n` +
+                    `🎟️ **Standard Voucher (Multi-Use)**\n` +
+                    `\`\`\`text\nNEW10\n\`\`\`\n` +
+                    `• **10% OFF** your order\n` +
+                    `• Can be reused up to **10 times** per customer\n\n` +
+                    `👑 **GMH VIP Inner Circle ($50+ Spend)**\n` +
+                    `Spend a minimum of **$50** in our store to unlock access to our **Private VIP Server**:\n` +
+                    `• 100% private, sanitized environment\n` +
+                    `• Completely protected against unwanted snipers and scammers\n` +
+                    `• Priority loader access and dedicated VIP perks\n\n` +
+                    `💡 **How to Apply Your Discounts:**\n` +
+                    `1. Select your tools on [gmh-shop.com](${CONFIG.DEFAULT_STORE_URL})\n` +
+                    `2. Add your products to the cart\n` +
+                    `3. Enter \`GMH\` (25% off once) or \`NEW10\` (10% off recurring) at checkout\n` +
+                    `4. Enjoy instant automated key delivery directly after purchase\n\n` +
+                    `❓ **Need Help or Setup Support?**\n` +
+                    `If you have questions about prerequisites, compatibility, or alternative payments, click below to open a ticket directly.`
+                )
+                .setColor(0x00E5FF)
+                .setImage(CONFIG.PERMANENT_BANNER_URL)
+                .setFooter({ text: 'GameMarket Hub • Automated Customer System' })
+                .setTimestamp();
+
+            const actionRow = new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                    .setLabel('Shop Catalog')
+                    .setStyle(ButtonStyle.Link)
+                    .setURL(CONFIG.DEFAULT_STORE_URL)
+                    .setEmoji('🛒'),
+                new ButtonBuilder()
+                    .setLabel('Open Support Ticket')
+                    .setStyle(ButtonStyle.Link)
+                    .setURL(CONFIG.TICKET_CHANNEL_LINK)
+                    .setEmoji('🎟️')
+            );
+
+            await newMember.send({ embeds: [welcomeEmbed], components: [actionRow] });
+            console.log(`[WELCOME DM] Sent promo and VIP tier details to ${newMember.user.tag}`);
+        } catch (err) {
+            console.log(`[WELCOME DM BLOCKED] User ${newMember.user.tag} has direct messages disabled.`);
         }
     }
 });
@@ -225,7 +257,7 @@ function buildTicketControlRow(isClaimed = false) {
 client.on('messageCreate', async (message) => {
     if (message.author.bot || !message.guild) return;
 
-    // 1. AUTOMOD FILTER (ONLY User ID: 659477576422785025 is exempt)
+    // 1. AUTOMOD FILTER (User ID: 659477576422785025 is exempt)
     if (message.author.id !== '659477576422785025' && message.member) {
         const contentLower = message.content.toLowerCase();
         const matchedWord = BANNED_KEYWORDS.find(keyword => contentLower.includes(keyword.toLowerCase()));
@@ -234,7 +266,6 @@ client.on('messageCreate', async (message) => {
             await message.delete().catch(() => {});
 
             if (message.member.moderatable) {
-                // 1 Minute Timeout (60,000 ms)
                 await message.member.timeout(60 * 1000, `Automod: Forbidden word "${matchedWord}"`).catch(() => {});
             }
 
@@ -246,7 +277,6 @@ client.on('messageCreate', async (message) => {
 
             const replyMsg = await message.channel.send({ embeds: [warnEmbed] }).catch(() => null);
             if (replyMsg) {
-                // Stays for exactly 30 seconds before deleting
                 setTimeout(() => replyMsg.delete().catch(() => {}), 30 * 1000);
             }
             return;
@@ -302,7 +332,6 @@ client.on('messageCreate', async (message) => {
                     }).catch(() => null);
 
                     if (afkReply) {
-                        // Exactly 20 seconds before auto-delete
                         setTimeout(() => afkReply.delete().catch(() => {}), 20 * 1000);
                     }
                 }
@@ -493,9 +522,9 @@ client.on('messageCreate', async (message) => {
             .setDescription(
                 `Click below to generate an announcement for <#${CONFIG.NEWS_CHANNEL_ID}>.\n\n` +
                 "**Features:**\n" +
-                "• Upload an image in any channel, copy the link, and insert it as the visual banner.\n" +
-                "• Auto-attaches Store & Support Ticket action buttons.\n" +
-                "• Supports optional Product link buttons and role pings."
+                "• Custom banner image URL support\n" +
+                "• Auto-attaches Store & Support Ticket buttons\n" +
+                "• Supports direct Product links & pings"
             )
             .setColor(0x00E5FF);
 
@@ -677,7 +706,6 @@ client.on('interactionCreate', async (interaction) => {
                 .setDescription(body)
                 .setColor(0x00E5FF);
 
-            // Apply custom image URL if provided, otherwise send without banner
             if (imageUrl && imageUrl.startsWith('http')) {
                 previewEmbed.setImage(imageUrl);
             }
@@ -712,7 +740,7 @@ client.on('interactionCreate', async (interaction) => {
                 productUrl: (productUrl && productUrl.startsWith('http')) ? productUrl : null
             });
 
-            return await interaction.editReply({ content: '✅ Preview generated below with your specified image settings. Confirm and click **Post to Announcements**.' });
+            return await interaction.editReply({ content: '✅ Preview generated below. Confirm and click **Post to Announcements**.' });
         }
 
         if (interaction.isButton() && interaction.customId === 'news_dispatch') {
