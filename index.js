@@ -23,11 +23,14 @@ try {
 }
 
 let initWorkingHours;
+let sendShiftUpdate;
 try {
     const wh = require('./working-hours');
     initWorkingHours = wh.initWorkingHours;
+    sendShiftUpdate = wh.sendShiftUpdate;
 } catch (e) {
     initWorkingHours = null;
+    sendShiftUpdate = null;
 }
 
 // =============================================================
@@ -56,7 +59,7 @@ const CONFIG = {
     NUKE_CHANNEL_ID: '1533093897277014157',
     NUKE_INTERVAL_HOURS: 24,
 
-    // Verified Links & Permanent Media
+    // Verified Links & Permanent Fallback Media
     DEFAULT_STORE_URL: 'https://gmh-shop.com',
     TICKET_CHANNEL_LINK: 'https://discord.com/channels/1040987039270707231/1533093930730520689',
     VERIFY_LINK: 'https://verify.guildmergers.com/gmhub/1040987039270707231',
@@ -112,6 +115,8 @@ const client = new Client({
 const guildInvites = new Map();
 const activeTickets = new Map();
 const draftAnnouncements = new Map();
+const afkUsers = new Map();             // Format: userId -> { reason, timestamp }
+const afkCooldowns = new Map();         // Format: `${authorId}_${targetId}` -> timestamp
 
 // Helper: Parse human-readable duration strings (e.g. 10m, 2h, 1d)
 function parseDuration(str) {
@@ -215,7 +220,7 @@ function buildTicketControlRow(isClaimed = false) {
 }
 
 // =============================================================
-// MESSAGE HANDLER: AUTOMOD & COMMANDS
+// MESSAGE HANDLER: AUTOMOD, AFK ROUTING & COMMANDS
 // =============================================================
 client.on('messageCreate', async (message) => {
     if (message.author.bot || !message.guild) return;
@@ -248,6 +253,64 @@ client.on('messageCreate', async (message) => {
         }
     }
 
+    // 2. AFK SYSTEM: AUTO-REMOVE STATUS WHEN USER SPEAKS
+    if (afkUsers.has(message.author.id) && !message.content.startsWith(`${CONFIG.PREFIX}afk`)) {
+        afkUsers.delete(message.author.id);
+        const welcomeBackMsg = await message.reply({ content: `👋 Welcome back ${message.author}! Your AFK status has been removed.` }).catch(() => null);
+        if (welcomeBackMsg) {
+            setTimeout(() => welcomeBackMsg.delete().catch(() => {}), 5000);
+        }
+    }
+
+    // 3. AFK SYSTEM: MENTION DETECTOR & 20s AUTO-CLEANUP RESPONDER
+    if (message.mentions.users.size > 0) {
+        for (const [targetId, targetUser] of message.mentions.users) {
+            if (targetUser.bot || targetId === message.author.id) continue;
+
+            if (afkUsers.has(targetId)) {
+                const cooldownKey = `${message.author.id}_${targetId}`;
+                const lastSent = afkCooldowns.get(cooldownKey) || 0;
+                const now = Date.now();
+
+                // 60-second cooldown per person to prevent tag spamming
+                if (now - lastSent > 60 * 1000) {
+                    afkCooldowns.set(cooldownKey, now);
+
+                    const afkData = afkUsers.get(targetId);
+                    const afkEmbed = new EmbedBuilder()
+                        .setTitle('⏳ Member Currently Unavailable')
+                        .setDescription(
+                            `**${targetUser.username}** is currently AFK or drowning in work right now and will get back to you as soon as possible!\n\n` +
+                            `• **Status:** \`${afkData.reason}\`\n` +
+                            `• **Away since:** <t:${Math.floor(afkData.timestamp / 1000)}:R>\n\n` +
+                            `If you need urgent assistance, key setups, or order support, please click below to open a ticket directly.`
+                        )
+                        .setColor(0x00E5FF);
+
+                    const ticketActionRow = new ActionRowBuilder().addComponents(
+                        new ButtonBuilder()
+                            .setLabel('Open Support Ticket')
+                            .setStyle(ButtonStyle.Link)
+                            .setURL(CONFIG.TICKET_CHANNEL_LINK)
+                            .setEmoji('🎟️')
+                    );
+
+                    const afkReply = await message.channel.send({
+                        content: `${message.author}`,
+                        embeds: [afkEmbed],
+                        components: [ticketActionRow]
+                    }).catch(() => null);
+
+                    if (afkReply) {
+                        // Exactly 20 seconds before auto-delete
+                        setTimeout(() => afkReply.delete().catch(() => {}), 20 * 1000);
+                    }
+                }
+            }
+        }
+    }
+
+    // 4. COMMAND DISPATCHER
     if (!message.content.startsWith(CONFIG.PREFIX)) return;
 
     const args = message.content.slice(CONFIG.PREFIX.length).trim().split(/ +/);
@@ -256,6 +319,53 @@ client.on('messageCreate', async (message) => {
     const isStaff = message.member?.roles.cache.has(CONFIG.STAFF_ROLE_ID);
     const isAdmin = CONFIG.ADMIN_ROLE_IDS.some(id => message.member?.roles.cache.has(id) || message.author.id === id) ||
                     message.member?.permissions.has(PermissionsBitField.Flags.Administrator);
+
+    // Global AFK Activation Command
+    if (command === 'afk') {
+        const reason = args.join(' ').trim() || 'Busy handling orders & updates';
+        afkUsers.set(message.author.id, {
+            reason: reason,
+            timestamp: Date.now()
+        });
+
+        const confirmMsg = await message.reply(`💤 ${message.author}, your AFK status is active: \`${reason}\`.\nI'll notify anyone who mentions you and direct them to tickets.`);
+        setTimeout(() => {
+            message.delete().catch(() => {});
+            confirmMsg.delete().catch(() => {});
+        }, 5000);
+        return;
+    }
+
+    // Manual Working Hours Announcements
+    if (command === 'shift-off' || command === 'shift-close') {
+        if (!isAdmin) return message.reply('❌ Admin permission required.');
+        await message.delete().catch(() => {});
+
+        try {
+            if (sendShiftUpdate) {
+                await sendShiftUpdate(client, 'closed');
+            }
+            const confirmMsg = await message.channel.send('✅ Manual **Shift Closed (Off Hours)** announcement published to announcements.');
+            return setTimeout(() => confirmMsg.delete().catch(() => {}), 5000);
+        } catch (err) {
+            return message.reply(`❌ Failed to send shift announcement: ${err.message}`);
+        }
+    }
+
+    if (command === 'shift-on' || command === 'shift-open') {
+        if (!isAdmin) return message.reply('❌ Admin permission required.');
+        await message.delete().catch(() => {});
+
+        try {
+            if (sendShiftUpdate) {
+                await sendShiftUpdate(client, 'open');
+            }
+            const confirmMsg = await message.channel.send('✅ Manual **Shift Open (Online)** announcement published to announcements.');
+            return setTimeout(() => confirmMsg.delete().catch(() => {}), 5000);
+        } catch (err) {
+            return message.reply(`❌ Failed to send shift announcement: ${err.message}`);
+        }
+    }
 
     if (command === 'ping') {
         return message.reply(`🏓 Pong! Bot latency: \`${client.ws.ping}ms\``);
@@ -382,10 +492,10 @@ client.on('messageCreate', async (message) => {
             .setTitle('📢 News & Announcement Dispatcher')
             .setDescription(
                 `Click below to generate an announcement for <#${CONFIG.NEWS_CHANNEL_ID}>.\n\n` +
-                "**Automated Layout:**\n" +
-                "• **Banner:** GMH permanent wide hero banner is automatically applied.\n" +
-                "• **Store** & **Support Ticket** buttons attach automatically.\n" +
-                "• Optional **Product Link** creates a direct view/buy button."
+                "**Features:**\n" +
+                "• Upload an image in any channel, copy the link, and insert it as the visual banner.\n" +
+                "• Auto-attaches Store & Support Ticket action buttons.\n" +
+                "• Supports optional Product link buttons and role pings."
             )
             .setColor(0x00E5FF);
 
@@ -497,7 +607,7 @@ client.on('messageCreate', async (message) => {
 // =============================================================
 client.on('interactionCreate', async (interaction) => {
     try {
-        // 1. ANNOUNCEMENT DISPATCHER
+        // 1. ANNOUNCEMENT DISPATCHER (With Dynamic Image Link Input)
         if (interaction.isButton() && interaction.customId === 'news_start_draft') {
             const modal = new ModalBuilder()
                 .setCustomId('modal_news_draft')
@@ -519,6 +629,14 @@ client.on('interactionCreate', async (interaction) => {
                         .setPlaceholder('Enter description, changelog, discount codes...')
                         .setStyle(TextInputStyle.Paragraph)
                         .setRequired(true)
+                ),
+                new ActionRowBuilder().addComponents(
+                    new TextInputBuilder()
+                        .setCustomId('news_image_url')
+                        .setLabel('Custom Image / Banner URL (Optional)')
+                        .setPlaceholder('Paste uploaded image link (CDN URL) or leave empty')
+                        .setStyle(TextInputStyle.Short)
+                        .setRequired(false)
                 ),
                 new ActionRowBuilder().addComponents(
                     new TextInputBuilder()
@@ -546,6 +664,7 @@ client.on('interactionCreate', async (interaction) => {
 
             const title = interaction.fields.getTextInputValue('news_title');
             const body = interaction.fields.getTextInputValue('news_body');
+            const imageUrl = interaction.fields.getTextInputValue('news_image_url')?.trim();
             const productUrl = interaction.fields.getTextInputValue('news_product_url')?.trim();
             const rawPing = interaction.fields.getTextInputValue('news_ping')?.toLowerCase().trim();
 
@@ -556,8 +675,12 @@ client.on('interactionCreate', async (interaction) => {
             const previewEmbed = new EmbedBuilder()
                 .setTitle(title)
                 .setDescription(body)
-                .setColor(0x00E5FF)
-                .setImage(CONFIG.PERMANENT_BANNER_URL);
+                .setColor(0x00E5FF);
+
+            // Apply custom image URL if provided, otherwise send without banner
+            if (imageUrl && imageUrl.startsWith('http')) {
+                previewEmbed.setImage(imageUrl);
+            }
 
             const linkRow = new ActionRowBuilder();
             if (productUrl && productUrl.startsWith('http')) {
@@ -585,10 +708,11 @@ client.on('interactionCreate', async (interaction) => {
                 title,
                 body,
                 pingText,
+                imageUrl: (imageUrl && imageUrl.startsWith('http')) ? imageUrl : null,
                 productUrl: (productUrl && productUrl.startsWith('http')) ? productUrl : null
             });
 
-            return await interaction.editReply({ content: '✅ Preview generated below with permanent banner. Confirm and click **Post to Announcements**.' });
+            return await interaction.editReply({ content: '✅ Preview generated below with your specified image settings. Confirm and click **Post to Announcements**.' });
         }
 
         if (interaction.isButton() && interaction.customId === 'news_dispatch') {
@@ -606,8 +730,11 @@ client.on('interactionCreate', async (interaction) => {
                 .setTitle(draft.title)
                 .setDescription(draft.body)
                 .setColor(0x00E5FF)
-                .setImage(CONFIG.PERMANENT_BANNER_URL)
                 .setTimestamp();
+
+            if (draft.imageUrl) {
+                finalEmbed.setImage(draft.imageUrl);
+            }
 
             const linkRow = new ActionRowBuilder();
             if (draft.productUrl) {
