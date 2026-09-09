@@ -66,6 +66,35 @@ const CONFIG = {
     PERMANENT_BANNER_URL: 'https://cdn.discordapp.com/attachments/1533856623108292811/1546231062743752714/Gemini_Generated_Image_2rln5o2rln5o2rln.jpg'
 };
 
+// Dynamic Welcome Message Settings (Adjustable via !setup-welcome panel)
+let WELCOME_CONFIG = {
+    title: '🎉 Welcome to GameMarket Hub!',
+    body: 
+        `To welcome you aboard, we've issued two exclusive discount vouchers for our store:\n\n` +
+        `🎟️ **Starter Voucher (One-Time Access)**\n` +
+        `\`\`\`text\nGMH\n\`\`\`\n` +
+        `• **25% OFF** your order\n` +
+        `• Valid for **1 single purchase** (best value on larger baskets)\n\n` +
+        `🎟️ **Standard Voucher (Multi-Use)**\n` +
+        `\`\`\`text\nNEW10\n\`\`\`\n` +
+        `• **10% OFF** your order\n` +
+        `• Can be reused up to **10 times** per customer\n\n` +
+        `👑 **GMH VIP Inner Circle ($50+ Spend)**\n` +
+        `Spend a minimum of **$50** in our store to unlock access to our **Private VIP Server**:\n` +
+        `• 100% private, sanitized environment\n` +
+        `• Completely protected against unwanted snipers and scammers\n` +
+        `• Priority loader access and dedicated VIP perks\n\n` +
+        `💡 **How to Apply Your Discounts:**\n` +
+        `1. Select your tools on [gmh-shop.com](https://gmh-shop.com)\n` +
+        `2. Add your products to the cart\n` +
+        `3. Enter \`GMH\` (25% off once) or \`NEW10\` (10% off recurring) at checkout\n` +
+        `4. Enjoy instant automated key delivery directly after purchase\n\n` +
+        `❓ **Need Help or Setup Support?**\n` +
+        `If you have questions about prerequisites, compatibility, or alternative payments, click below to open a ticket directly.`,
+    bannerUrl: CONFIG.PERMANENT_BANNER_URL,
+    storeUrl: CONFIG.DEFAULT_STORE_URL
+};
+
 const BANNED_KEYWORDS = [
     'cheat', 'cheats', 'cheater', 'cheating', 'hack', 'hacks', 'hacker', 'hacking',
     'spoof', 'spoofing', 'spoofer', 'hwid spoofer', 'aimbot', 'wallhack', 'esp',
@@ -141,67 +170,62 @@ client.once('ready', async () => {
 });
 
 // =============================================================
-// VERIFIED MEMBER WELCOME DM (2 COUPONS + VIP SERVER PERK)
+// HELPER: BUILD & DISPATCH WELCOME DM
 // =============================================================
+async function dispatchWelcomeMessage(member) {
+    try {
+        const welcomeEmbed = new EmbedBuilder()
+            .setAuthor({ 
+                name: 'GameMarket Hub', 
+                iconURL: member.guild?.iconURL({ dynamic: true }) || WELCOME_CONFIG.bannerUrl 
+            })
+            .setTitle(WELCOME_CONFIG.title)
+            .setDescription(`Hey ${member}, welcome to the server!\n\n${WELCOME_CONFIG.body}`)
+            .setColor(0x00E5FF)
+            .setFooter({ text: 'GameMarket Hub • Automated Welcome System' })
+            .setTimestamp();
+
+        if (WELCOME_CONFIG.bannerUrl && WELCOME_CONFIG.bannerUrl.startsWith('http')) {
+            welcomeEmbed.setImage(WELCOME_CONFIG.bannerUrl);
+        }
+
+        const actionRow = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setLabel('Shop Catalog')
+                .setStyle(ButtonStyle.Link)
+                .setURL(WELCOME_CONFIG.storeUrl || CONFIG.DEFAULT_STORE_URL)
+                .setEmoji('🛒'),
+            new ButtonBuilder()
+                .setLabel('Open Support Ticket')
+                .setStyle(ButtonStyle.Link)
+                .setURL(CONFIG.TICKET_CHANNEL_LINK)
+                .setEmoji('🎟️')
+        );
+
+        await member.send({ embeds: [welcomeEmbed], components: [actionRow] });
+        console.log(`[WELCOME DM SUCCESS] Sent DM directly to ${member.user?.tag || member.id}`);
+        return true;
+    } catch (err) {
+        console.error(`[WELCOME DM BLOCKED] Could not DM user: ${err.message}`);
+        return false;
+    }
+}
+
+// Event 1: Automatically dispatch when any new user joins
+client.on('guildMemberAdd', async (member) => {
+    console.log(`[MEMBER JOINED] ${member.user.tag} joined. Executing automated welcome...`);
+    await dispatchWelcomeMessage(member);
+});
+
+// Event 2: Fallback listener if verification roles are applied
 client.on('guildMemberUpdate', async (oldMember, newMember) => {
+    if (CONFIG.CUSTOMER_ROLE_ID === 'YOUR_CUSTOMER_ROLE_ID') return;
     const hadRole = oldMember.roles.cache.has(CONFIG.CUSTOMER_ROLE_ID);
     const hasRole = newMember.roles.cache.has(CONFIG.CUSTOMER_ROLE_ID);
 
     if (!hadRole && hasRole) {
-        try {
-            const welcomeEmbed = new EmbedBuilder()
-                .setAuthor({ 
-                    name: 'GameMarket Hub', 
-                    iconURL: newMember.guild.iconURL({ dynamic: true }) || CONFIG.PERMANENT_BANNER_URL 
-                })
-                .setTitle('🎉 Welcome to GameMarket Hub!')
-                .setDescription(
-                    `Hey ${newMember}, thanks for verifying your account!\n\n` +
-                    `To welcome you aboard, we've issued two exclusive discount vouchers for our store:\n\n` +
-                    `🎟️ **Starter Voucher (One-Time Access)**\n` +
-                    `\`\`\`text\nGMH\n\`\`\`\n` +
-                    `• **25% OFF** your order\n` +
-                    `• Valid for **1 single purchase** (best value on larger baskets)\n\n` +
-                    `🎟️ **Standard Voucher (Multi-Use)**\n` +
-                    `\`\`\`text\nNEW10\n\`\`\`\n` +
-                    `• **10% OFF** your order\n` +
-                    `• Can be reused up to **10 times** per customer\n\n` +
-                    `👑 **GMH VIP Inner Circle ($50+ Spend)**\n` +
-                    `Spend a minimum of **$50** in our store to unlock access to our **Private VIP Server**:\n` +
-                    `• 100% private, sanitized environment\n` +
-                    `• Completely protected against unwanted snipers and scammers\n` +
-                    `• Priority loader access and dedicated VIP perks\n\n` +
-                    `💡 **How to Apply Your Discounts:**\n` +
-                    `1. Select your tools on [gmh-shop.com](${CONFIG.DEFAULT_STORE_URL})\n` +
-                    `2. Add your products to the cart\n` +
-                    `3. Enter \`GMH\` (25% off once) or \`NEW10\` (10% off recurring) at checkout\n` +
-                    `4. Enjoy instant automated key delivery directly after purchase\n\n` +
-                    `❓ **Need Help or Setup Support?**\n` +
-                    `If you have questions about prerequisites, compatibility, or alternative payments, click below to open a ticket directly.`
-                )
-                .setColor(0x00E5FF)
-                .setImage(CONFIG.PERMANENT_BANNER_URL)
-                .setFooter({ text: 'GameMarket Hub • Automated Customer System' })
-                .setTimestamp();
-
-            const actionRow = new ActionRowBuilder().addComponents(
-                new ButtonBuilder()
-                    .setLabel('Shop Catalog')
-                    .setStyle(ButtonStyle.Link)
-                    .setURL(CONFIG.DEFAULT_STORE_URL)
-                    .setEmoji('🛒'),
-                new ButtonBuilder()
-                    .setLabel('Open Support Ticket')
-                    .setStyle(ButtonStyle.Link)
-                    .setURL(CONFIG.TICKET_CHANNEL_LINK)
-                    .setEmoji('🎟️')
-            );
-
-            await newMember.send({ embeds: [welcomeEmbed], components: [actionRow] });
-            console.log(`[WELCOME DM] Sent promo and VIP tier details to ${newMember.user.tag}`);
-        } catch (err) {
-            console.log(`[WELCOME DM BLOCKED] User ${newMember.user.tag} has direct messages disabled.`);
-        }
+        console.log(`[ROLE GAINED] ${newMember.user.tag} verified. Sending welcome DM...`);
+        await dispatchWelcomeMessage(newMember);
     }
 });
 
@@ -302,7 +326,6 @@ client.on('messageCreate', async (message) => {
                 const lastSent = afkCooldowns.get(cooldownKey) || 0;
                 const now = Date.now();
 
-                // 60-second cooldown per person to prevent tag spamming
                 if (now - lastSent > 60 * 1000) {
                     afkCooldowns.set(cooldownKey, now);
 
@@ -398,6 +421,51 @@ client.on('messageCreate', async (message) => {
 
     if (command === 'ping') {
         return message.reply(`🏓 Pong! Bot latency: \`${client.ws.ping}ms\``);
+    }
+
+    // Manual Welcome DM Dispatcher & Testing (!sendwelcome or !sendwelcome @user)
+    if (command === 'sendwelcome') {
+        if (!isAdmin) return message.reply('❌ Admin permission required.');
+        const targetMember = message.mentions.members.first() || message.member;
+
+        const sent = await dispatchWelcomeMessage(targetMember);
+        if (sent) {
+            return message.reply(`✅ Welcome DM successfully dispatched to ${targetMember}! Check your inbox.`);
+        } else {
+            return message.reply(`❌ Failed to send welcome DM to ${targetMember}. Ensure your Direct Messages are allowed from server members in privacy settings.`);
+        }
+    }
+
+    // Spawns Dynamic Welcome Message Control Panel
+    if (command === 'setup-welcome') {
+        if (!isAdmin) return message.reply('❌ Admin permission required.');
+        await message.delete().catch(() => {});
+
+        const welcomePanelEmbed = new EmbedBuilder()
+            .setTitle('⚙️ Welcome Message Configuration Panel')
+            .setDescription(
+                'Configure the automated welcome DM received by members when joining GameMarket Hub.\n\n' +
+                `• **Current Title:** \`${WELCOME_CONFIG.title}\`\n` +
+                `• **Target Store:** \`${WELCOME_CONFIG.storeUrl}\`\n` +
+                `• **Banner URL:** ${WELCOME_CONFIG.bannerUrl ? `[View Attached Image](${WELCOME_CONFIG.bannerUrl})` : '`None`'}\n\n` +
+                'Click **Edit Welcome Message** below to modify copy, discounts, and visual media.'
+            )
+            .setColor(0x00E5FF);
+
+        const welcomePanelRow = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId('btn_open_welcome_editor')
+                .setLabel('Edit Welcome Message')
+                .setStyle(ButtonStyle.Primary)
+                .setEmoji('✏️'),
+            new ButtonBuilder()
+                .setCustomId('btn_preview_welcome')
+                .setLabel('Test DM to Me')
+                .setStyle(ButtonStyle.Secondary)
+                .setEmoji('📨')
+        );
+
+        return await message.channel.send({ embeds: [welcomePanelEmbed], components: [welcomePanelRow] });
     }
 
     // Automated Order Delivery
@@ -636,7 +704,76 @@ client.on('messageCreate', async (message) => {
 // =============================================================
 client.on('interactionCreate', async (interaction) => {
     try {
-        // 1. ANNOUNCEMENT DISPATCHER (With Dynamic Image Link Input)
+        // 1. WELCOME MESSAGE EDITOR MODAL & TEST TRIGGER
+        if (interaction.isButton() && interaction.customId === 'btn_open_welcome_editor') {
+            const isAdmin = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator) ||
+                            CONFIG.ADMIN_ROLE_IDS.some(id => interaction.member.roles.cache.has(id));
+            if (!isAdmin) return interaction.reply({ content: '❌ Administrator access required.', ephemeral: true });
+
+            const modal = new ModalBuilder()
+                .setCustomId('modal_welcome_edit')
+                .setTitle('Edit Automated Welcome DM');
+
+            modal.addComponents(
+                new ActionRowBuilder().addComponents(
+                    new TextInputBuilder()
+                        .setCustomId('w_title')
+                        .setLabel('Header Title')
+                        .setValue(WELCOME_CONFIG.title)
+                        .setStyle(TextInputStyle.Short)
+                        .setRequired(true)
+                ),
+                new ActionRowBuilder().addComponents(
+                    new TextInputBuilder()
+                        .setCustomId('w_body')
+                        .setLabel('Message Copy & Codes')
+                        .setValue(WELCOME_CONFIG.body)
+                        .setStyle(TextInputStyle.Paragraph)
+                        .setRequired(true)
+                ),
+                new ActionRowBuilder().addComponents(
+                    new TextInputBuilder()
+                        .setCustomId('w_banner')
+                        .setLabel('Hero Image Banner URL')
+                        .setValue(WELCOME_CONFIG.bannerUrl)
+                        .setStyle(TextInputStyle.Short)
+                        .setRequired(false)
+                ),
+                new ActionRowBuilder().addComponents(
+                    new TextInputBuilder()
+                        .setCustomId('w_store')
+                        .setLabel('Store Button URL')
+                        .setValue(WELCOME_CONFIG.storeUrl)
+                        .setStyle(TextInputStyle.Short)
+                        .setRequired(false)
+                )
+            );
+
+            return await interaction.showModal(modal);
+        }
+
+        if (interaction.isModalSubmit() && interaction.customId === 'modal_welcome_edit') {
+            WELCOME_CONFIG.title = interaction.fields.getTextInputValue('w_title').trim();
+            WELCOME_CONFIG.body = interaction.fields.getTextInputValue('w_body').trim();
+            WELCOME_CONFIG.bannerUrl = interaction.fields.getTextInputValue('w_banner')?.trim() || CONFIG.PERMANENT_BANNER_URL;
+            WELCOME_CONFIG.storeUrl = interaction.fields.getTextInputValue('w_store')?.trim() || CONFIG.DEFAULT_STORE_URL;
+
+            return await interaction.reply({ 
+                content: '✅ Automated Welcome DM successfully updated! Any new members joining will immediately receive this updated copy.', 
+                ephemeral: true 
+            });
+        }
+
+        if (interaction.isButton() && interaction.customId === 'btn_preview_welcome') {
+            const sent = await dispatchWelcomeMessage(interaction.member);
+            if (sent) {
+                return await interaction.reply({ content: '✅ Dispatched test DM to your inbox!', ephemeral: true });
+            } else {
+                return await interaction.reply({ content: '❌ Failed to DM you. Ensure your Discord privacy settings allow direct messages from server members.', ephemeral: true });
+            }
+        }
+
+        // 2. ANNOUNCEMENT DISPATCHER (With Dynamic Image Link Input)
         if (interaction.isButton() && interaction.customId === 'news_start_draft') {
             const modal = new ModalBuilder()
                 .setCustomId('modal_news_draft')
@@ -793,7 +930,7 @@ client.on('interactionCreate', async (interaction) => {
             return await interaction.reply({ content: '🗑️ Draft discarded.', ephemeral: true });
         }
 
-        // 2. STAFF RECRUITMENT CREATION & CONTROLS
+        // 3. STAFF RECRUITMENT CREATION & CONTROLS
         if (interaction.isButton() && interaction.customId === 'btn_open_app') {
             await interaction.deferReply({ ephemeral: true });
 
@@ -878,7 +1015,7 @@ client.on('interactionCreate', async (interaction) => {
             }
         }
 
-        // 3. SUPPORT TICKET MODALS
+        // 4. SUPPORT TICKET MODALS
         if (interaction.isButton()) {
             if (interaction.customId === 'ticket_general') {
                 const modal = new ModalBuilder().setCustomId('modal_ticket_general').setTitle('🛠️ Technical Assistance');
@@ -1101,7 +1238,7 @@ client.on('interactionCreate', async (interaction) => {
             }
         }
 
-        // 4. TICKET FORM SUBMISSIONS
+        // 5. TICKET FORM SUBMISSIONS
         if (interaction.isModalSubmit()) {
             const guild = interaction.guild;
             const user = interaction.user;
