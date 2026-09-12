@@ -1158,12 +1158,36 @@ client.on('interactionCreate', async (interaction) => {
                     return await interaction.reply({ content: '❌ Product not found.', ephemeral: true });
                 }
 
+                await interaction.deferReply({ ephemeral: true });
+
                 const productEmbed = new EmbedBuilder()
                     .setTitle(product.name)
-                    .setDescription(`Your download is ready. Click the button below to get started.\n\n📂 **File:** \`${product.name}\`\n📁 **Category:** \`${category}\`\n👤 **User:** ${interaction.user}`)
+                    .setDescription(`Your download is ready below.\n\n📂 **File:** \`${product.name}\`\n📁 **Category:** \`${category}\`\n👤 **User:** ${interaction.user}`)
                     .setColor(0x00E5FF)
                     .setTimestamp();
 
+                // Direct File Attachment Resolution via Discord Message Link
+                const discordMsgMatch = product.url.match(/channels\/(\d+)\/(\d+)\/(\d+)/);
+
+                if (discordMsgMatch) {
+                    const [, , channelId, messageId] = discordMsgMatch;
+                    try {
+                        const targetChan = await interaction.client.channels.fetch(channelId).catch(() => null);
+                        const targetMsg = targetChan ? await targetChan.messages.fetch(messageId).catch(() => null) : null;
+                        const attachment = targetMsg?.attachments?.first();
+
+                        if (attachment) {
+                            return await interaction.editReply({
+                                embeds: [productEmbed],
+                                files: [attachment.url]
+                            });
+                        }
+                    } catch (err) {
+                        console.error('Failed to resolve attachment message link:', err);
+                    }
+                }
+
+                // Fallback for regular external links
                 const actionRow = new ActionRowBuilder().addComponents(
                     new ButtonBuilder()
                         .setLabel('Download')
@@ -1172,7 +1196,7 @@ client.on('interactionCreate', async (interaction) => {
                         .setEmoji('📥')
                 );
 
-                return await interaction.reply({ embeds: [productEmbed], components: [actionRow], ephemeral: true });
+                return await interaction.editReply({ embeds: [productEmbed], components: [actionRow] });
             }
         }
 
