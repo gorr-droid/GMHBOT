@@ -12,7 +12,8 @@ const {
     TextInputBuilder, 
     TextInputStyle, 
     Collection,
-    AttachmentBuilder 
+    AttachmentBuilder,
+    StringSelectMenuBuilder
 } = require('discord.js');
 
 let discordTranscripts;
@@ -66,7 +67,7 @@ const CONFIG = {
     PERMANENT_BANNER_URL: 'https://cdn.discordapp.com/attachments/1533856623108292811/1546231062743752714/Gemini_Generated_Image_2rln5o2rln5o2rln.jpg'
 };
 
-// Dynamic Welcome Message Settings (Adjustable via !setup-welcome panel)
+// Dynamic Welcome Message Settings
 let WELCOME_CONFIG = {
     title: '🎉 Welcome to GameMarket Hub!',
     body: 
@@ -124,6 +125,20 @@ const activeTickets = new Map();
 const draftAnnouncements = new Map();
 const afkUsers = new Map();             // userId -> { reason, timestamp }
 const afkCooldowns = new Map();         // `${authorId}_${targetId}` -> timestamp
+
+// Runtime Download Catalog Storage
+const downloadCatalog = new Map([
+    ['COD', [
+        { name: 'COD Spoofer v1', description: 'Standard loader for Call of Duty', url: 'https://gmh-shop.com' },
+        { name: 'COD Internal Chair', description: 'Advanced internal feature set', url: 'https://gmh-shop.com' }
+    ]],
+    ['HWID SPOOFER', [
+        { name: 'Infinite Spoofer', description: 'Universal hardware ID spoofer', url: 'https://gmh-shop.com' }
+    ]],
+    ['DELTA FORCE', [
+        { name: 'Delta Force: Internal', description: 'Download Delta Force Internal tool', url: 'https://gmh-shop.com' }
+    ]]
+]);
 
 function parseDuration(str) {
     if (!str) return null;
@@ -211,13 +226,11 @@ async function dispatchWelcomeMessage(member) {
     }
 }
 
-// Event 1: Automatically dispatch when any new user joins
 client.on('guildMemberAdd', async (member) => {
     console.log(`[MEMBER JOINED] ${member.user.tag} joined. Executing automated welcome...`);
     await dispatchWelcomeMessage(member);
 });
 
-// Event 2: Fallback listener if verification roles are applied
 client.on('guildMemberUpdate', async (oldMember, newMember) => {
     if (CONFIG.CUSTOMER_ROLE_ID === 'YOUR_CUSTOMER_ROLE_ID') return;
     const hadRole = oldMember.roles.cache.has(CONFIG.CUSTOMER_ROLE_ID);
@@ -281,7 +294,7 @@ function buildTicketControlRow(isClaimed = false) {
 client.on('messageCreate', async (message) => {
     if (message.author.bot || !message.guild) return;
 
-    // 1. AUTOMOD FILTER (User ID: 659477576422785025 is exempt)
+    // 1. AUTOMOD FILTER
     if (message.author.id !== '659477576422785025' && message.member) {
         const contentLower = message.content.toLowerCase();
         const matchedWord = BANNED_KEYWORDS.find(keyword => contentLower.includes(keyword.toLowerCase()));
@@ -307,7 +320,7 @@ client.on('messageCreate', async (message) => {
         }
     }
 
-    // 2. AFK SYSTEM: AUTO-REMOVE STATUS WHEN USER SPEAKS
+    // 2. AFK SYSTEM
     if (afkUsers.has(message.author.id) && !message.content.startsWith(`${CONFIG.PREFIX}afk`)) {
         afkUsers.delete(message.author.id);
         const welcomeBackMsg = await message.reply({ content: `👋 Welcome back ${message.author}! Your AFK status has been removed.` }).catch(() => null);
@@ -316,7 +329,6 @@ client.on('messageCreate', async (message) => {
         }
     }
 
-    // 3. AFK SYSTEM: MENTION DETECTOR & 20s AUTO-CLEANUP RESPONDER
     if (message.mentions.users.size > 0) {
         for (const [targetId, targetUser] of message.mentions.users) {
             if (targetUser.bot || targetId === message.author.id) continue;
@@ -372,7 +384,6 @@ client.on('messageCreate', async (message) => {
     const isAdmin = CONFIG.ADMIN_ROLE_IDS.some(id => message.member?.roles.cache.has(id) || message.author.id === id) ||
                     message.member?.permissions.has(PermissionsBitField.Flags.Administrator);
 
-    // Global AFK Activation Command
     if (command === 'afk') {
         const reason = args.join(' ').trim() || 'Busy handling orders & updates';
         afkUsers.set(message.author.id, {
@@ -388,7 +399,6 @@ client.on('messageCreate', async (message) => {
         return;
     }
 
-    // Manual Working Hours Announcements
     if (command === 'shift-off' || command === 'shift-close') {
         if (!isAdmin) return message.reply('❌ Admin permission required.');
         await message.delete().catch(() => {});
@@ -423,7 +433,6 @@ client.on('messageCreate', async (message) => {
         return message.reply(`🏓 Pong! Bot latency: \`${client.ws.ping}ms\``);
     }
 
-    // Manual Welcome DM Dispatcher & Testing (!sendwelcome or !sendwelcome @user)
     if (command === 'sendwelcome') {
         if (!isAdmin) return message.reply('❌ Admin permission required.');
         const targetMember = message.mentions.members.first() || message.member;
@@ -436,7 +445,6 @@ client.on('messageCreate', async (message) => {
         }
     }
 
-    // Spawns Dynamic Welcome Message Control Panel
     if (command === 'setup-welcome') {
         if (!isAdmin) return message.reply('❌ Admin permission required.');
         await message.delete().catch(() => {});
@@ -447,7 +455,7 @@ client.on('messageCreate', async (message) => {
                 'Configure the automated welcome DM received by members when joining GameMarket Hub.\n\n' +
                 `• **Current Title:** \`${WELCOME_CONFIG.title}\`\n` +
                 `• **Target Store:** \`${WELCOME_CONFIG.storeUrl}\`\n` +
-                `• **Banner URL:** ${WELCOME_CONFIG.bannerUrl ? `[View Attached Image](${WELCOME_CONFIG.bannerUrl})` : '`None`'}\n\n` +
+                `• **Banner URL:** ${WELCOME_CONFIG.bannerUrl ? `[View Attached Image](${WELCOME_CONFIG.bannerUrl})` : '`None`'}\n\n' +
                 'Click **Edit Welcome Message** below to modify copy, discounts, and visual media.'
             )
             .setColor(0x00E5FF);
@@ -468,7 +476,6 @@ client.on('messageCreate', async (message) => {
         return await message.channel.send({ embeds: [welcomePanelEmbed], components: [welcomePanelRow] });
     }
 
-    // Automated Order Delivery
     if (command === 'deliver') {
         if (!isAdmin && !isStaff) return message.reply('❌ Unauthorized.');
 
@@ -503,7 +510,6 @@ client.on('messageCreate', async (message) => {
         }
     }
 
-    // Moderation Suite
     if (command === 'timeout' || command === 'mute') {
         if (!message.member.permissions.has(PermissionsBitField.Flags.ModerateMembers) && !isAdmin) {
             return message.reply('❌ Unauthorized.');
@@ -580,7 +586,6 @@ client.on('messageCreate', async (message) => {
         }
     }
 
-    // Panel Spawners
     if (command === 'setup-news') {
         if (!isAdmin) return message.reply('❌ Admin permission required.');
         await message.delete().catch(() => {});
@@ -697,6 +702,63 @@ client.on('messageCreate', async (message) => {
 
         return await message.channel.send({ embeds: [ticketEmbed], components: [buttonRow] });
     }
+
+    // ==========================================
+    // DOWNLOAD PANEL COMMANDS
+    // ==========================================
+    if (command === 'spawn-downloads') {
+        if (!isAdmin) return message.reply('❌ Admin permission required.');
+        await message.delete().catch(() => {});
+
+        const panelEmbed = new EmbedBuilder()
+            .setTitle('📥 Download Panel')
+            .setDescription('Use the drop-down panel below to select a category and product to download.')
+            .setImage(CONFIG.PERMANENT_BANNER_URL)
+            .setColor(0x00E5FF)
+            .setFooter({ text: `${Array.from(downloadCatalog.values()).flat().length} loaders | ${downloadCatalog.size} categories` });
+
+        const categories = Array.from(downloadCatalog.keys());
+        const selectMenu = new StringSelectMenuBuilder()
+            .setCustomId('download_select_category')
+            .setPlaceholder('Choose a category')
+            .addOptions(
+                categories.map(cat => ({
+                    label: cat,
+                    description: `${downloadCatalog.get(cat).length} product(s)`,
+                    value: cat,
+                    emoji: '📁'
+                }))
+            );
+
+        const row = new ActionRowBuilder().addComponents(selectMenu);
+        return await message.channel.send({ embeds: [panelEmbed], components: [row] });
+    }
+
+    if (command === 'spawn-download-admin') {
+        if (!isAdmin) return message.reply('❌ Admin permission required.');
+        await message.delete().catch(() => {});
+
+        const adminEmbed = new EmbedBuilder()
+            .setTitle('🛠️ Download Manager Panel')
+            .setDescription('Staff management panel for the download catalog. Use the buttons below to add or remove products.')
+            .setColor(0xFF0055)
+            .setFooter({ text: 'GameMarket Hub • Secure Staff Panel' });
+
+        const adminRow = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId('dl_admin_open_add')
+                .setLabel('Add Product')
+                .setStyle(ButtonStyle.Success)
+                .setEmoji('➕'),
+            new ButtonBuilder()
+                .setCustomId('dl_admin_open_remove')
+                .setLabel('Remove Product')
+                .setStyle(ButtonStyle.Danger)
+                .setEmoji('🗑️')
+        );
+
+        return await message.channel.send({ embeds: [adminEmbed], components: [adminRow] });
+    }
 });
 
 // =============================================================
@@ -704,10 +766,11 @@ client.on('messageCreate', async (message) => {
 // =============================================================
 client.on('interactionCreate', async (interaction) => {
     try {
+        const isAdmin = interaction.member?.permissions?.has(PermissionsBitField.Flags.Administrator) ||
+                        CONFIG.ADMIN_ROLE_IDS.some(id => interaction.member?.roles?.cache?.has(id) || interaction.member?.id === id);
+
         // 1. WELCOME MESSAGE EDITOR MODAL & TEST TRIGGER
         if (interaction.isButton() && interaction.customId === 'btn_open_welcome_editor') {
-            const isAdmin = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator) ||
-                            CONFIG.ADMIN_ROLE_IDS.some(id => interaction.member.roles.cache.has(id));
             if (!isAdmin) return interaction.reply({ content: '❌ Administrator access required.', ephemeral: true });
 
             const modal = new ModalBuilder()
@@ -773,7 +836,7 @@ client.on('interactionCreate', async (interaction) => {
             }
         }
 
-        // 2. ANNOUNCEMENT DISPATCHER (With Dynamic Image Link Input)
+        // 2. ANNOUNCEMENT DISPATCHER
         if (interaction.isButton() && interaction.customId === 'news_start_draft') {
             const modal = new ModalBuilder()
                 .setCustomId('modal_news_draft')
@@ -977,9 +1040,6 @@ client.on('interactionCreate', async (interaction) => {
         }
 
         if (interaction.isButton() && interaction.customId.startsWith('app_')) {
-            const isAdmin = interaction.member.permissions.has(PermissionsBitField.Flags.Administrator) ||
-                            CONFIG.ADMIN_ROLE_IDS.some(id => interaction.member.roles.cache.has(id));
-
             if (!isAdmin) {
                 return await interaction.reply({ content: '❌ Only Administrators can review applications.', ephemeral: true });
             }
@@ -1015,7 +1075,107 @@ client.on('interactionCreate', async (interaction) => {
             }
         }
 
-        // 4. SUPPORT TICKET MODALS
+        // 4. DOWNLOAD PANEL & ADMIN MANAGEMENT BUTTON INTERACTIONS
+        if (interaction.isButton()) {
+            if (interaction.customId === 'dl_admin_open_add') {
+                if (!isAdmin) {
+                    return await interaction.reply({ content: '❌ Access Denied: Admin permission required.', ephemeral: true });
+                }
+
+                const modal = new ModalBuilder()
+                    .setCustomId('modal_dl_add_product')
+                    .setTitle('Add New Download Product');
+
+                modal.addComponents(
+                    new ActionRowBuilder().addComponents(
+                        new TextInputBuilder().setCustomId('dl_cat').setLabel('Category Name (e.g. COD, HWID)').setStyle(TextInputStyle.Short).setRequired(true)
+                    ),
+                    new ActionRowBuilder().addComponents(
+                        new TextInputBuilder().setCustomId('dl_name').setLabel('Product Name').setStyle(TextInputStyle.Short).setRequired(true)
+                    ),
+                    new ActionRowBuilder().addComponents(
+                        new TextInputBuilder().setCustomId('dl_desc').setLabel('Short Description').setStyle(TextInputStyle.Short).setRequired(true)
+                    ),
+                    new ActionRowBuilder().addComponents(
+                        new TextInputBuilder().setCustomId('dl_url').setLabel('Download URL / File Link').setStyle(TextInputStyle.Short).setRequired(true)
+                    )
+                );
+
+                return await interaction.showModal(modal);
+            }
+
+            if (interaction.customId === 'dl_admin_open_remove') {
+                if (!isAdmin) {
+                    return await interaction.reply({ content: '❌ Access Denied: Admin permission required.', ephemeral: true });
+                }
+
+                const modal = new ModalBuilder()
+                    .setCustomId('modal_dl_remove_product')
+                    .setTitle('Remove Download Product');
+
+                modal.addComponents(
+                    new ActionRowBuilder().addComponents(
+                        new TextInputBuilder().setCustomId('dl_rem_cat').setLabel('Category Name').setStyle(TextInputStyle.Short).setRequired(true)
+                    ),
+                    new ActionRowBuilder().addComponents(
+                        new TextInputBuilder().setCustomId('dl_rem_name').setLabel('Exact Product Name to Delete').setStyle(TextInputStyle.Short).setRequired(true)
+                    )
+                );
+
+                return await interaction.showModal(modal);
+            }
+        }
+
+        if (interaction.isStringSelectMenu()) {
+            if (interaction.customId === 'download_select_category') {
+                const selectedCategory = interaction.values[0];
+                const products = downloadCatalog.get(selectedCategory) || [];
+
+                const productMenu = new StringSelectMenuBuilder()
+                    .setCustomId(`download_select_product_${selectedCategory}`)
+                    .setPlaceholder(`Choose a product in ${selectedCategory}`)
+                    .addOptions(
+                        products.map(prod => ({
+                            label: prod.name,
+                            description: prod.description.slice(0, 50),
+                            value: prod.name,
+                            emoji: '🚀'
+                        }))
+                    );
+
+                const row = new ActionRowBuilder().addComponents(productMenu);
+                return await interaction.update({ components: [interaction.message.components[0], row] });
+            }
+
+            if (interaction.customId.startsWith('download_select_product_')) {
+                const category = interaction.customId.replace('download_select_product_', '');
+                const productName = interaction.values[0];
+                const products = downloadCatalog.get(category) || [];
+                const product = products.find(p => p.name === productName);
+
+                if (!product) {
+                    return await interaction.reply({ content: '❌ Product not found.', ephemeral: true });
+                }
+
+                const productEmbed = new EmbedBuilder()
+                    .setTitle(product.name)
+                    .setDescription(`Your download is ready. Click the button below to get started.\n\n📂 **File:** \`${product.name}\`\n📁 **Category:** \`${category}\`\n👤 **User:** ${interaction.user}`)
+                    .setColor(0x00E5FF)
+                    .setTimestamp();
+
+                const actionRow = new ActionRowBuilder().addComponents(
+                    new ButtonBuilder()
+                        .setLabel('Download')
+                        .setStyle(ButtonStyle.Link)
+                        .setURL(product.url)
+                        .setEmoji('📥')
+                );
+
+                return await interaction.reply({ embeds: [productEmbed], components: [actionRow], ephemeral: true });
+            }
+        }
+
+        // 5. TICKET BUTTONS
         if (interaction.isButton()) {
             if (interaction.customId === 'ticket_general') {
                 const modal = new ModalBuilder().setCustomId('modal_ticket_general').setTitle('🛠️ Technical Assistance');
@@ -1087,8 +1247,6 @@ client.on('interactionCreate', async (interaction) => {
 
             const isFullStaff = member?.roles?.cache?.has(CONFIG.STAFF_ROLE_ID);
             const isTrialStaff = member?.roles?.cache?.has(CONFIG.TRIAL_STAFF_ROLE_ID);
-            const isAdmin = CONFIG.ADMIN_ROLE_IDS.some(id => member?.roles?.cache?.has(id) || member?.id === id) || 
-                            member?.permissions?.has(PermissionsBitField.Flags.Administrator);
 
             if (interaction.customId === 'claim_ticket') {
                 if (!isFullStaff && !isTrialStaff && !isAdmin) {
@@ -1238,10 +1396,55 @@ client.on('interactionCreate', async (interaction) => {
             }
         }
 
-        // 5. TICKET FORM SUBMISSIONS
+        // 6. MODAL SUBMISSIONS FOR DOWNLOAD MANAGEMENT & TICKETS
         if (interaction.isModalSubmit()) {
             const guild = interaction.guild;
             const user = interaction.user;
+
+            if (interaction.customId === 'modal_dl_add_product') {
+                if (!isAdmin) {
+                    return await interaction.reply({ content: '❌ Access Denied: Admin permission required.', ephemeral: true });
+                }
+
+                const category = interaction.fields.getTextInputValue('dl_cat').toUpperCase().trim();
+                const name = interaction.fields.getTextInputValue('dl_name').trim();
+                const description = interaction.fields.getTextInputValue('dl_desc').trim();
+                const url = interaction.fields.getTextInputValue('dl_url').trim();
+
+                if (!downloadCatalog.has(category)) {
+                    downloadCatalog.set(category, []);
+                }
+
+                downloadCatalog.get(category).push({ name, description, url });
+                return await interaction.reply({ content: `✅ Successfully added **${name}** under category **${category}** via management panel!`, ephemeral: true });
+            }
+
+            if (interaction.customId === 'modal_dl_remove_product') {
+                if (!isAdmin) {
+                    return await interaction.reply({ content: '❌ Access Denied: Admin permission required.', ephemeral: true });
+                }
+
+                const category = interaction.fields.getTextInputValue('dl_rem_cat').toUpperCase().trim();
+                const name = interaction.fields.getTextInputValue('dl_rem_name').trim();
+
+                if (!downloadCatalog.has(category)) {
+                    return await interaction.reply({ content: `❌ Category **${category}** does not exist.`, ephemeral: true });
+                }
+
+                const products = downloadCatalog.get(category);
+                const index = products.findIndex(p => p.name.toLowerCase() === name.toLowerCase());
+
+                if (index === -1) {
+                    return await interaction.reply({ content: `❌ Product **${name}** not found in category **${category}**.`, ephemeral: true });
+                }
+
+                products.splice(index, 1);
+                if (products.length === 0) {
+                    downloadCatalog.delete(category);
+                }
+
+                return await interaction.reply({ content: `🗑️ Successfully removed **${name}** from **${category}**!`, ephemeral: true });
+            }
 
             let ticketType = 'Support';
             let channelPrefix = 'ticket';
