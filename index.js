@@ -150,6 +150,28 @@ function parseDuration(str) {
     return val * mults[unit];
 }
 
+function buildAdminCatalogEmbed() {
+    let inventoryDesc = '';
+    let totalItems = 0;
+
+    for (const [cat, prods] of downloadCatalog.entries()) {
+        totalItems += prods.length;
+        const toolNames = prods.map(p => `\`${p.name}\``).join(', ');
+        inventoryDesc += `📁 **${cat}** (${prods.length}):\n${toolNames || '*None*'}\n\n`;
+    }
+
+    if (!inventoryDesc) {
+        inventoryDesc = '*The catalog is currently empty. Click **Add Product** below.*';
+    }
+
+    return new EmbedBuilder()
+        .setTitle('🛠️ Download Catalog Inventory')
+        .setDescription(`Manage tools and categories visible in the customer download panel.\n\n${inventoryDesc}`)
+        .setColor(0xFF0055)
+        .setFooter({ text: `Total Loaders: ${totalItems} | Total Groups: ${downloadCatalog.size}` })
+        .setTimestamp();
+}
+
 const APP_QUESTIONS = [
     { title: "Age & Hardware", question: "**Question 1/9:** How old are you, and do you own a Windows PC that you can use while providing support?" },
     { title: "Timezone & Active Hours", question: "**Question 2/9:** What is your timezone/country, and what specific hours of the day are you active?" },
@@ -739,11 +761,7 @@ client.on('messageCreate', async (message) => {
         if (!isAdmin) return message.reply('❌ Admin permission required.');
         await message.delete().catch(() => {});
 
-        const adminEmbed = new EmbedBuilder()
-            .setTitle('🛠️ Download Manager Panel')
-            .setDescription('Staff management panel for the download catalog. Use the buttons below to add or remove products.')
-            .setColor(0xFF0055)
-            .setFooter({ text: 'GameMarket Hub • Secure Staff Panel' });
+        const adminEmbed = buildAdminCatalogEmbed();
 
         const adminRow = new ActionRowBuilder().addComponents(
             new ButtonBuilder()
@@ -753,9 +771,14 @@ client.on('messageCreate', async (message) => {
                 .setEmoji('➕'),
             new ButtonBuilder()
                 .setCustomId('dl_admin_open_remove')
-                .setLabel('Remove Product')
+                .setLabel('Remove Product / Group')
                 .setStyle(ButtonStyle.Danger)
-                .setEmoji('🗑️')
+                .setEmoji('🗑️'),
+            new ButtonBuilder()
+                .setCustomId('dl_admin_refresh_view')
+                .setLabel('Refresh List')
+                .setStyle(ButtonStyle.Secondary)
+                .setEmoji('🔄')
         );
 
         return await message.channel.send({ embeds: [adminEmbed], components: [adminRow] });
@@ -1076,33 +1099,46 @@ client.on('interactionCreate', async (interaction) => {
             }
         }
 
-        // 4. DOWNLOAD PANEL & ADMIN MANAGEMENT BUTTON INTERACTIONS
+        // 4. DOWNLOAD PANEL & ADMIN MANAGEMENT CONTROLS
         if (interaction.isButton()) {
+            if (interaction.customId === 'dl_admin_refresh_view') {
+                if (!isAdmin) return await interaction.reply({ content: '❌ Admin required.', ephemeral: true });
+                return await interaction.update({ embeds: [buildAdminCatalogEmbed()] });
+            }
+
             if (interaction.customId === 'dl_admin_open_add') {
                 if (!isAdmin) {
                     return await interaction.reply({ content: '❌ Access Denied: Admin permission required.', ephemeral: true });
                 }
 
-                const modal = new ModalBuilder()
-                    .setCustomId('modal_dl_add_product')
-                    .setTitle('Add New Download Product');
+                const existingCategories = Array.from(downloadCatalog.keys());
+                const options = [
+                    {
+                        label: '➕ Create Brand New Category',
+                        description: 'Add a new game or tool type',
+                        value: '__NEW_CATEGORY__',
+                        emoji: '✨'
+                    },
+                    ...existingCategories.map(cat => ({
+                        label: `Add inside: ${cat}`.slice(0, 100),
+                        description: `Currently has ${downloadCatalog.get(cat).length} product(s)`.slice(0, 100),
+                        value: cat,
+                        emoji: '📁'
+                    }))
+                ];
 
-                modal.addComponents(
-                    new ActionRowBuilder().addComponents(
-                        new TextInputBuilder().setCustomId('dl_cat').setLabel('Category Name (e.g. COD, HWID)').setStyle(TextInputStyle.Short).setRequired(true)
-                    ),
-                    new ActionRowBuilder().addComponents(
-                        new TextInputBuilder().setCustomId('dl_name').setLabel('Product Name').setStyle(TextInputStyle.Short).setRequired(true)
-                    ),
-                    new ActionRowBuilder().addComponents(
-                        new TextInputBuilder().setCustomId('dl_desc').setLabel('Short Description').setStyle(TextInputStyle.Short).setRequired(true)
-                    ),
-                    new ActionRowBuilder().addComponents(
-                        new TextInputBuilder().setCustomId('dl_url').setLabel('Download URL / File Link').setStyle(TextInputStyle.Short).setRequired(true)
-                    )
-                );
+                const selectMenu = new StringSelectMenuBuilder()
+                    .setCustomId('dl_admin_choose_add_category')
+                    .setPlaceholder('Choose a category or create a new one')
+                    .addOptions(options.slice(0, 25));
 
-                return await interaction.showModal(modal);
+                const row = new ActionRowBuilder().addComponents(selectMenu);
+
+                return await interaction.reply({
+                    content: 'Choose which category to add this tool to:',
+                    components: [row],
+                    ephemeral: true
+                });
             }
 
             if (interaction.customId === 'dl_admin_open_remove') {
@@ -1110,24 +1146,130 @@ client.on('interactionCreate', async (interaction) => {
                     return await interaction.reply({ content: '❌ Access Denied: Admin permission required.', ephemeral: true });
                 }
 
+                if (downloadCatalog.size === 0) {
+                    return await interaction.reply({ content: '⚠️ The download catalog is currently empty.', ephemeral: true });
+                }
+
+                const options = [];
+
+                for (const [cat, prods] of downloadCatalog.entries()) {
+                    options.push({
+                        label: `📁 Remove Entire Group: ${cat}`.slice(0, 100),
+                        description: `Deletes all ${prods.length} product(s) inside ${cat}`.slice(0, 100),
+                        value: `DEL_GROUP:::${cat}`,
+                        emoji: '🗂️'
+                    });
+                }
+
+                for (const [cat, prods] of downloadCatalog.entries()) {
+                    for (const p of prods) {
+                        if (options.length < 25) {
+                            options.push({
+                                label: p.name.slice(0, 100),
+                                description: `Group: ${cat}`.slice(0, 100),
+                                value: `DEL_TOOL:::${cat}:::${p.name}`,
+                                emoji: '🗑️'
+                            });
+                        }
+                    }
+                }
+
+                const selectMenu = new StringSelectMenuBuilder()
+                    .setCustomId('dl_admin_select_delete')
+                    .setPlaceholder('Choose a tool or entire group to remove')
+                    .addOptions(options);
+
+                const row = new ActionRowBuilder().addComponents(selectMenu);
+
+                return await interaction.reply({
+                    content: 'Select whether to remove a single tool or delete an entire group:',
+                    components: [row],
+                    ephemeral: true
+                });
+            }
+        }
+
+        if (interaction.isStringSelectMenu()) {
+            if (interaction.customId === 'dl_admin_choose_add_category') {
+                if (!isAdmin) return await interaction.reply({ content: '❌ Admin required.', ephemeral: true });
+
+                const selected = interaction.values[0];
+                const isNew = selected === '__NEW_CATEGORY__';
+
                 const modal = new ModalBuilder()
-                    .setCustomId('modal_dl_remove_product')
-                    .setTitle('Remove Download Product');
+                    .setCustomId(`modal_dl_add_product_${isNew ? 'NEW' : encodeURIComponent(selected)}`)
+                    .setTitle(isNew ? 'Add Tool (New Category)' : `Add Tool to ${selected.slice(0, 20)}`);
+
+                if (isNew) {
+                    modal.addComponents(
+                        new ActionRowBuilder().addComponents(
+                            new TextInputBuilder().setCustomId('dl_cat').setLabel('New Category Name (e.g. RUST, CS2)').setStyle(TextInputStyle.Short).setRequired(true)
+                        )
+                    );
+                }
 
                 modal.addComponents(
                     new ActionRowBuilder().addComponents(
-                        new TextInputBuilder().setCustomId('dl_rem_cat').setLabel('Category Name').setStyle(TextInputStyle.Short).setRequired(true)
+                        new TextInputBuilder().setCustomId('dl_name').setLabel('Product Name').setStyle(TextInputStyle.Short).setRequired(true)
                     ),
                     new ActionRowBuilder().addComponents(
-                        new TextInputBuilder().setCustomId('dl_rem_name').setLabel('Exact Product Name to Delete').setStyle(TextInputStyle.Short).setRequired(true)
+                        new TextInputBuilder().setCustomId('dl_desc').setLabel('Short Description').setStyle(TextInputStyle.Short).setRequired(true)
+                    ),
+                    new ActionRowBuilder().addComponents(
+                        new TextInputBuilder().setCustomId('dl_url').setLabel('Download URL / Discord Message Link').setStyle(TextInputStyle.Short).setRequired(true)
                     )
                 );
 
                 return await interaction.showModal(modal);
             }
-        }
 
-        if (interaction.isStringSelectMenu()) {
+            if (interaction.customId === 'dl_admin_select_delete') {
+                if (!isAdmin) {
+                    return await interaction.reply({ content: '❌ Access Denied: Admin permission required.', ephemeral: true });
+                }
+
+                const payload = interaction.values[0];
+
+                if (payload.startsWith('DEL_GROUP:::')) {
+                    const category = payload.replace('DEL_GROUP:::', '');
+
+                    if (!downloadCatalog.has(category)) {
+                        return await interaction.update({ content: `❌ Group **${category}** does not exist.`, components: [] });
+                    }
+
+                    downloadCatalog.delete(category);
+                    return await interaction.update({
+                        content: `🗑️ Successfully deleted entire group **${category}** and all its products!`,
+                        components: []
+                    });
+                }
+
+                if (payload.startsWith('DEL_TOOL:::')) {
+                    const [, category, productName] = payload.split(':::');
+
+                    if (!downloadCatalog.has(category)) {
+                        return await interaction.update({ content: `❌ Group **${category}** no longer exists.`, components: [] });
+                    }
+
+                    const products = downloadCatalog.get(category);
+                    const index = products.findIndex(p => p.name === productName);
+
+                    if (index === -1) {
+                        return await interaction.update({ content: `❌ Tool **${productName}** not found in group **${category}**.`, components: [] });
+                    }
+
+                    products.splice(index, 1);
+                    if (products.length === 0) {
+                        downloadCatalog.delete(category);
+                    }
+
+                    return await interaction.update({
+                        content: `🗑️ Successfully removed **${productName}** from **${category}**!`,
+                        components: []
+                    });
+                }
+            }
+
             if (interaction.customId === 'download_select_category') {
                 const selectedCategory = interaction.values[0];
                 const products = downloadCatalog.get(selectedCategory) || [];
@@ -1166,7 +1308,7 @@ client.on('interactionCreate', async (interaction) => {
                     .setColor(0x00E5FF)
                     .setTimestamp();
 
-                // Direct File Attachment Resolution via Discord Message Link
+                // Direct File Attachment via Discord Message Link
                 const discordMsgMatch = product.url.match(/channels\/(\d+)\/(\d+)\/(\d+)/);
 
                 if (discordMsgMatch) {
@@ -1187,7 +1329,7 @@ client.on('interactionCreate', async (interaction) => {
                     }
                 }
 
-                // Fallback for regular external links
+                // Fallback for regular external download URLs
                 const actionRow = new ActionRowBuilder().addComponents(
                     new ButtonBuilder()
                         .setLabel('Download')
@@ -1421,17 +1563,25 @@ client.on('interactionCreate', async (interaction) => {
             }
         }
 
-        // 6. MODAL SUBMISSIONS FOR DOWNLOAD MANAGEMENT & TICKETS
+        // 6. MODAL SUBMISSIONS FOR DOWNLOAD ADDITION & TICKETS
         if (interaction.isModalSubmit()) {
             const guild = interaction.guild;
             const user = interaction.user;
 
-            if (interaction.customId === 'modal_dl_add_product') {
+            if (interaction.customId.startsWith('modal_dl_add_product_')) {
                 if (!isAdmin) {
                     return await interaction.reply({ content: '❌ Access Denied: Admin permission required.', ephemeral: true });
                 }
 
-                const category = interaction.fields.getTextInputValue('dl_cat').toUpperCase().trim();
+                const rawParam = interaction.customId.replace('modal_dl_add_product_', '');
+                let category;
+
+                if (rawParam === 'NEW') {
+                    category = interaction.fields.getTextInputValue('dl_cat').toUpperCase().trim();
+                } else {
+                    category = decodeURIComponent(rawParam);
+                }
+
                 const name = interaction.fields.getTextInputValue('dl_name').trim();
                 const description = interaction.fields.getTextInputValue('dl_desc').trim();
                 const url = interaction.fields.getTextInputValue('dl_url').trim();
@@ -1441,34 +1591,10 @@ client.on('interactionCreate', async (interaction) => {
                 }
 
                 downloadCatalog.get(category).push({ name, description, url });
-                return await interaction.reply({ content: `✅ Successfully added **${name}** under category **${category}** via management panel!`, ephemeral: true });
-            }
-
-            if (interaction.customId === 'modal_dl_remove_product') {
-                if (!isAdmin) {
-                    return await interaction.reply({ content: '❌ Access Denied: Admin permission required.', ephemeral: true });
-                }
-
-                const category = interaction.fields.getTextInputValue('dl_rem_cat').toUpperCase().trim();
-                const name = interaction.fields.getTextInputValue('dl_rem_name').trim();
-
-                if (!downloadCatalog.has(category)) {
-                    return await interaction.reply({ content: `❌ Category **${category}** does not exist.`, ephemeral: true });
-                }
-
-                const products = downloadCatalog.get(category);
-                const index = products.findIndex(p => p.name.toLowerCase() === name.toLowerCase());
-
-                if (index === -1) {
-                    return await interaction.reply({ content: `❌ Product **${name}** not found in category **${category}**.`, ephemeral: true });
-                }
-
-                products.splice(index, 1);
-                if (products.length === 0) {
-                    downloadCatalog.delete(category);
-                }
-
-                return await interaction.reply({ content: `🗑️ Successfully removed **${name}** from **${category}**!`, ephemeral: true });
+                return await interaction.reply({ 
+                    content: `✅ Successfully added **${name}** into **${category}**!`, 
+                    ephemeral: true 
+                });
             }
 
             let ticketType = 'Support';
