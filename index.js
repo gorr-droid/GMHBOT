@@ -67,7 +67,7 @@ const CONFIG = {
     PERMANENT_BANNER_URL: 'https://cdn.discordapp.com/attachments/1533856623108292811/1546231062743752714/Gemini_Generated_Image_2rln5o2rln5o2rln.jpg'
 };
 
-// Dynamic Welcome Message Settings
+// Dynamic Welcome Message Settings (Adjustable via !setup-welcome panel)
 let WELCOME_CONFIG = {
     title: '🎉 Welcome to GameMarket Hub!',
     body: 
@@ -123,8 +123,8 @@ const client = new Client({
 // Runtime Storage
 const activeTickets = new Map();
 const draftAnnouncements = new Map();
-const afkUsers = new Map();             // userId -> { reason, timestamp }
-const afkCooldowns = new Map();         // `${authorId}_${targetId}` -> timestamp
+const afkUsers = new Map();
+const afkCooldowns = new Map();
 
 // Runtime Download Catalog Storage
 const downloadCatalog = new Map([
@@ -184,9 +184,6 @@ client.once('ready', async () => {
     }
 });
 
-// =============================================================
-// HELPER: BUILD & DISPATCH WELCOME DM
-// =============================================================
 async function dispatchWelcomeMessage(member) {
     try {
         const welcomeEmbed = new EmbedBuilder()
@@ -374,7 +371,7 @@ client.on('messageCreate', async (message) => {
         }
     }
 
-    // 4. COMMAND DISPATCHER
+    // 3. COMMAND DISPATCHER
     if (!message.content.startsWith(CONFIG.PREFIX)) return;
 
     const args = message.content.slice(CONFIG.PREFIX.length).trim().split(/ +/);
@@ -449,13 +446,17 @@ client.on('messageCreate', async (message) => {
         if (!isAdmin) return message.reply('❌ Admin permission required.');
         await message.delete().catch(() => {});
 
+        const bannerStatus = (WELCOME_CONFIG.bannerUrl && WELCOME_CONFIG.bannerUrl.startsWith('http'))
+            ? `[View Attached Image](${WELCOME_CONFIG.bannerUrl})`
+            : '`None`';
+
         const welcomePanelEmbed = new EmbedBuilder()
             .setTitle('⚙️ Welcome Message Configuration Panel')
             .setDescription(
                 'Configure the automated welcome DM received by members when joining GameMarket Hub.\n\n' +
                 `• **Current Title:** \`${WELCOME_CONFIG.title}\`\n` +
                 `• **Target Store:** \`${WELCOME_CONFIG.storeUrl}\`\n` +
-                `• **Banner URL:** ${WELCOME_CONFIG.bannerUrl ? `[View Attached Image](${WELCOME_CONFIG.bannerUrl})` : '`None`'}\n\n' +
+                `• **Banner URL:** ${bannerStatus}\n\n` +
                 'Click **Edit Welcome Message** below to modify copy, discounts, and visual media.'
             )
             .setColor(0x00E5FF);
