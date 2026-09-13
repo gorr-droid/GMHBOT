@@ -11,7 +11,6 @@ const {
     ModalBuilder, 
     TextInputBuilder, 
     TextInputStyle, 
-    Collection,
     AttachmentBuilder,
     StringSelectMenuBuilder
 } = require('discord.js');
@@ -67,7 +66,7 @@ const CONFIG = {
     PERMANENT_BANNER_URL: 'https://cdn.discordapp.com/attachments/1533856623108292811/1546231062743752714/Gemini_Generated_Image_2rln5o2rln5o2rln.jpg'
 };
 
-// Dynamic Welcome Message Settings (Adjustable via !setup-welcome panel)
+// Dynamic Welcome Message Settings
 let WELCOME_CONFIG = {
     title: '🎉 Welcome to GameMarket Hub!',
     body: 
@@ -127,31 +126,53 @@ const afkUsers = new Map();
 const afkCooldowns = new Map();
 
 // =============================================================
-// PRE-POPULATED STORE CATALOG (FULL GMH INVENTORY)
+// UNIFIED DYNAMIC CATALOG ENGINE (HANDLES MULTI-GAME DEVS)
 // =============================================================
-const downloadCatalog = new Map([
+const MULTI_GAME_PROVIDERS = {
+    Ancient: [
+        { game: 'ARC', name: 'Ancient: ARC Raiders', desc: 'ARC Raiders Internal Utility' },
+        { game: 'APEX', name: 'Ancient: Apex Legends', desc: 'Full featured loader for Apex' },
+        { game: 'FN', name: 'Ancient: Fortnite', desc: 'Comprehensive Fortnite tool' },
+        { game: 'DELTA FORCE', name: 'Ancient: Delta Force', desc: 'Delta Force Warfare internal utility' },
+        { game: 'COD', name: 'Ancient: COD External', desc: 'Warzone / BO6 external tool' },
+        { game: 'R6S', name: 'Ancient: Rainbow Six Siege', desc: 'Full Siege internal assistance' },
+        { game: 'RUST', name: 'Ancient: Rust', desc: 'Comprehensive Rust internal engine' },
+        { game: 'ARENA BREAKOUT', name: 'Ancient: ABI Radar', desc: '2D Web / Overlay radar assistance' },
+        { game: 'BATTLEFIELD 6', name: 'Ancient: Battlefield 6', desc: 'Battlefield engine memory utility' },
+        { game: 'DEAD BY DAYLIGHT', name: 'Ancient: Dead By Daylight', desc: 'Full survivor and killer ESP' },
+        { game: 'ESCAPE FROM TARKOV', name: 'Ancient: Escape From Tarkov', desc: 'Loot filter, PMC visual, and memory suite' },
+        { game: 'PUBG', name: 'Ancient: PUBG', desc: 'Recoil compensation & player ESP' }
+    ],
+    Venom: [
+        { game: 'APEX', name: 'Venom: Apex Legends', desc: 'Optimized external suite' },
+        { game: 'FN', name: 'Venom: Fortnite', desc: 'External performance utility' }
+    ],
+    Arcane: [
+        { game: 'APEX', name: 'Arcane: Apex Legends', desc: 'Kernel-level Apex loader' },
+        { game: 'FN', name: 'Arcane: Fortnite', desc: 'Advanced security Fortnite loader' },
+        { game: 'RUST', name: 'Arcane: Rust', desc: 'Long-term undetected Rust utility' },
+        { game: 'FIVE M', name: 'Arcane: GTA V Enhanced', desc: 'Enhanced utility for Grand Theft Auto V' },
+        { game: 'BATTLEFIELD 6', name: 'Arcane: Battlefield 6', desc: 'External tactical overlay' },
+        { game: 'DEAD BY DAYLIGHT', name: 'Arcane: Dead By Daylight', desc: 'Skill check and entity highlighter' },
+        { game: 'DAYZ', name: 'Arcane: DayZ', desc: 'Inventory radar, player ESP & item tracker' }
+    ]
+};
+
+const STANDALONE_PRODUCTS = new Map([
     ['ARC', [
-        { name: 'Ancient: ARC Raiders', description: 'ARC Raiders Internal Utility', url: 'https://gmh-shop.com' },
         { name: 'Yami: ARC Raiders External + Spoofer', description: 'External overlay + built-in spoofer', url: 'https://gmh-shop.com' },
         { name: 'BLITZ: ARC Raiders External', description: 'External visual assistance tool', url: 'https://gmh-shop.com' },
         { name: 'Skyra: ARC Raiders Cheat', description: 'High performance ARC Raiders loader', url: 'https://gmh-shop.com' },
         { name: 'AC-ARC Raiders', description: 'Clean external utility for ARC Raiders', url: 'https://gmh-shop.com' }
     ]],
     ['APEX', [
-        { name: 'Raiko: Apex Legends Internal', description: 'Precision internal feature set', url: 'https://gmh-shop.com' },
-        { name: 'Ancient: Apex Legends', description: 'Full featured loader for Apex', url: 'https://gmh-shop.com' },
-        { name: 'Venom: Apex Legends', description: 'Optimized external suite', url: 'https://gmh-shop.com' },
-        { name: 'Arcane: Apex Legends', description: 'Kernel-level Apex loader', url: 'https://gmh-shop.com' }
+        { name: 'Raiko: Apex Legends Internal', description: 'Precision internal feature set', url: 'https://gmh-shop.com' }
     ]],
     ['FN', [
         { name: 'Fortnite: Full Public', description: 'Public stable Fortnite loader', url: 'https://gmh-shop.com' },
-        { name: 'Venom: Fortnite', description: 'External performance utility', url: 'https://gmh-shop.com' },
-        { name: 'Ancient: Fortnite Cheat', description: 'Comprehensive Fortnite tool', url: 'https://gmh-shop.com' },
-        { name: 'Arcane: Fortnite Cheat', description: 'Advanced security Fortnite loader', url: 'https://gmh-shop.com' },
         { name: 'EON Fortnite External', description: 'Smooth streaming-safe external', url: 'https://gmh-shop.com' }
     ]],
     ['DELTA FORCE', [
-        { name: 'Ancient: Delta Force', description: 'Delta Force Warfare internal utility', url: 'https://gmh-shop.com' },
         { name: 'Delta Force: Grey Internal', description: 'Full memory internal tool', url: 'https://gmh-shop.com' }
     ]],
     ['PC PROTECTOR', [
@@ -170,7 +191,6 @@ const downloadCatalog = new Map([
         { name: 'Valorant: Public Full', description: 'Complete Valorant feature set', url: 'https://gmh-shop.com' }
     ]],
     ['COD', [
-        { name: 'Ancient: COD External', description: 'Warzone / BO6 external tool', url: 'https://gmh-shop.com' },
         { name: 'Grey - Silver DMZ/MWII Internal', description: 'Legacy MW2 & DMZ internal suite', url: 'https://gmh-shop.com' },
         { name: '[BO7/WZ] Thunex External', description: 'BO6 / Warzone external feature set', url: 'https://gmh-shop.com' },
         { name: 'BO7: Royal External', description: 'Royal premium external overlay', url: 'https://gmh-shop.com' },
@@ -187,36 +207,17 @@ const downloadCatalog = new Map([
     ['R6S', [
         { name: 'Sapphire: R6S Unlock All', description: 'All weapon skins, charms, and operators', url: 'https://gmh-shop.com' },
         { name: 'Vega - R6 External', description: 'Stream-proof external Siege overlay', url: 'https://gmh-shop.com' },
-        { name: 'Ancient: Rainbow Six Siege', description: 'Full Siege internal assistance', url: 'https://gmh-shop.com' },
         { name: 'Crusader: Rainbow Six Siege', description: 'Crusader security-tested loader', url: 'https://gmh-shop.com' }
     ]],
     ['RUST', [
-        { name: 'MEK - Rust External', description: 'Smooth recoil & visual external tool', url: 'https://gmh-shop.com' },
-        { name: 'Ancient: Rust', description: 'Comprehensive Rust internal engine', url: 'https://gmh-shop.com' },
-        { name: 'Arcane: Rust', description: 'Long-term undetected Rust utility', url: 'https://gmh-shop.com' }
+        { name: 'MEK - Rust External', description: 'Smooth recoil & visual external tool', url: 'https://gmh-shop.com' }
     ]],
     ['ARENA BREAKOUT', [
         { name: 'Akuma - Arena Breakout', description: 'Internal memory suite for ABI', url: 'https://gmh-shop.com' },
-        { name: 'Ancient: ABI Radar', description: '2D Web / Overlay radar assistance', url: 'https://gmh-shop.com' },
         { name: 'CA - Arena Breakout Infinite', description: 'Full feature loader for Infinite', url: 'https://gmh-shop.com' }
     ]],
     ['FIVE M', [
-        { name: 'Arcane: GTA V Enhanced', description: 'Enhanced utility for Grand Theft Auto V', url: 'https://gmh-shop.com' },
         { name: 'Ham Exec + Vanity Menu Bundle', description: 'Complete Lua executor and menu bundle', url: 'https://gmh-shop.com' }
-    ]],
-    ['BATTLEFIELD 6', [
-        { name: 'Ancient: Battlefield 6', description: 'Battlefield engine memory utility', url: 'https://gmh-shop.com' },
-        { name: 'Arcane: Battlefield 6', description: 'External tactical overlay', url: 'https://gmh-shop.com' }
-    ]],
-    ['DEAD BY DAYLIGHT', [
-        { name: 'Ancient: Dead By Daylight', description: 'Full survivor and killer ESP', url: 'https://gmh-shop.com' },
-        { name: 'Arcane: Dead By Daylight', description: 'Skill check and entity highlighter', url: 'https://gmh-shop.com' }
-    ]],
-    ['ESCAPE FROM TARKOV', [
-        { name: 'Ancient: Escape From Tarkov', description: 'Loot filter, PMC visual, and memory suite', url: 'https://gmh-shop.com' }
-    ]],
-    ['DAYZ', [
-        { name: 'Arcane: DayZ', description: 'Inventory radar, player ESP & item tracker', url: 'https://gmh-shop.com' }
     ]],
     ['DEADLOCK', [
         { name: 'Deadlock: Predator', description: 'Tactical target locator and visuals', url: 'https://gmh-shop.com' }
@@ -233,13 +234,35 @@ const downloadCatalog = new Map([
     ['SCUM', [
         { name: 'CA - SCUM', description: 'Survival item tracker and precision tools', url: 'https://gmh-shop.com' }
     ]],
-    ['PUBG', [
-        { name: 'Ancient: PUBG', description: 'Recoil compensation & player ESP', url: 'https://gmh-shop.com' }
-    ]],
     ['SUPPORT', [
         { name: 'GMH Support Tool', description: 'Diagnostic & prerequisite runtime installer', url: 'https://gmh-shop.com' }
     ]]
 ]);
+
+// Initialize the master catalog
+const downloadCatalog = new Map();
+
+function initMasterCatalog() {
+    // 1. Load standalone items
+    for (const [category, items] of STANDALONE_PRODUCTS.entries()) {
+        downloadCatalog.set(category, [...items]);
+    }
+
+    // 2. Auto-merge multi-game provider suites
+    for (const items of Object.values(MULTI_GAME_PROVIDERS)) {
+        for (const item of items) {
+            if (!downloadCatalog.has(item.game)) {
+                downloadCatalog.set(item.game, []);
+            }
+            downloadCatalog.get(item.game).unshift({
+                name: item.name,
+                description: item.desc,
+                url: 'https://gmh-shop.com'
+            });
+        }
+    }
+}
+initMasterCatalog();
 
 function parseDuration(str) {
     if (!str) return null;
@@ -304,6 +327,42 @@ client.once('ready', async () => {
         } catch (err) {
             console.error('[WORKING HOURS ERROR]:', err.message);
         }
+    }
+});
+
+// Member Leave Notification Logger
+client.on('guildMemberRemove', async (member) => {
+    try {
+        const logChannel = member.guild.channels.cache.get(CONFIG.STAFF_DISPATCH_CHANNEL_ID) ||
+                           await member.guild.channels.fetch(CONFIG.STAFF_DISPATCH_CHANNEL_ID).catch(() => null);
+        if (!logChannel) return;
+
+        const joinedTimestamp = member.joinedTimestamp 
+            ? `<t:${Math.floor(member.joinedTimestamp / 1000)}:R>` 
+            : 'Unknown';
+        const createdTimestamp = `<t:${Math.floor(member.user.createdTimestamp / 1000)}:R>`;
+
+        const roles = member.roles.cache
+            .filter(r => r.id !== member.guild.id)
+            .map(r => r.name)
+            .join(', ') || 'None';
+
+        const leaveEmbed = new EmbedBuilder()
+            .setColor(0xE74C3C)
+            .setTitle('🚪 Member Left / Disconnected')
+            .setThumbnail(member.user.displayAvatarURL({ dynamic: true }))
+            .addFields(
+                { name: 'User', value: `${member.user.tag} (\`${member.id}\`)`, inline: false },
+                { name: 'Joined Server', value: joinedTimestamp, inline: true },
+                { name: 'Account Created', value: createdTimestamp, inline: true },
+                { name: 'Assigned Roles', value: `\`\`\`text\n${roles}\n\`\`\``, inline: false }
+            )
+            .setFooter({ text: `Total Members: ${member.guild.memberCount}` })
+            .setTimestamp();
+
+        await logChannel.send({ embeds: [leaveEmbed] });
+    } catch (err) {
+        console.error('[LEAVE LOGGER ERROR]:', err);
     }
 });
 
@@ -1247,7 +1306,6 @@ client.on('interactionCreate', async (interaction) => {
                 });
             }
 
-            // EDIT PRODUCT BUTTON
             if (interaction.customId === 'dl_admin_open_edit') {
                 if (!isAdmin) {
                     return await interaction.reply({ content: '❌ Access Denied: Admin permission required.', ephemeral: true });
@@ -1304,7 +1362,6 @@ client.on('interactionCreate', async (interaction) => {
         }
 
         if (interaction.isStringSelectMenu()) {
-            // Manage deletions per category
             if (interaction.customId === 'dl_admin_remove_choose_category') {
                 if (!isAdmin) return await interaction.reply({ content: '❌ Admin required.', ephemeral: true });
 
@@ -1386,7 +1443,6 @@ client.on('interactionCreate', async (interaction) => {
                 }
             }
 
-            // Editing Workflows
             if (interaction.customId === 'dl_admin_edit_choose_category') {
                 if (!isAdmin) return await interaction.reply({ content: '❌ Admin required.', ephemeral: true });
 
@@ -1495,7 +1551,7 @@ client.on('interactionCreate', async (interaction) => {
                 return await interaction.showModal(modal);
             }
 
-            // Customer Download System
+            // Customer Download Interaction
             if (interaction.customId === 'download_select_category') {
                 const selectedCategory = interaction.values[0];
                 const products = downloadCatalog.get(selectedCategory) || [];
@@ -1566,7 +1622,7 @@ client.on('interactionCreate', async (interaction) => {
             }
         }
 
-        // 5. TICKET BUTTONS
+        // 5. TICKET MODALS & CONTROLS
         if (interaction.isButton()) {
             if (interaction.customId === 'ticket_general') {
                 const modal = new ModalBuilder().setCustomId('modal_ticket_general').setTitle('🛠️ Technical Assistance');
@@ -1632,7 +1688,7 @@ client.on('interactionCreate', async (interaction) => {
                 return await interaction.showModal(modal);
             }
 
-            // Ticket Controls: Claim, Unclaim, Close
+            // Controls
             const channel = interaction.channel;
             const member = interaction.member;
 
@@ -1787,7 +1843,7 @@ client.on('interactionCreate', async (interaction) => {
             }
         }
 
-        // 6. MODAL SUBMISSIONS FOR DOWNLOAD ADDITION, EDITING & TICKETS
+        // 6. MODAL SUBMISSIONS (DOWNLOADS & TICKETS)
         if (interaction.isModalSubmit()) {
             const guild = interaction.guild;
             const user = interaction.user;
