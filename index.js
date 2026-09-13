@@ -119,45 +119,45 @@ const activeTickets = new Map();
 const draftAnnouncements = new Map();
 const afkUsers = new Map();
 const afkCooldowns = new Map();
-const pendingAdminData = new Map();
+const pendingMultiAdd = new Map();
 
 // =============================================================
-// PRE-POPULATED STORE CATALOG
+// HARDCODED PRODUCTION CATALOG (ALL VERIFIED URLS LOCKED IN)
 // =============================================================
 const downloadCatalog = new Map([
     ['ARC', [
-        { name: 'Ancient: ARC Raiders', description: 'ARC Raiders Internal Utility', url: 'https://gmh-shop.com' },
+        { name: 'Ancient Multi Loader', description: 'Universal Multi-Game Loader', url: 'https://telegra.ph/INJECTION-07-21-4' },
+        { name: 'AC-ARC Raiders', description: 'Clean external utility for ARC Raiders', url: 'https://discord.com/channels/1040987039270707231/1546976979494899842/1548719980340846602' },
         { name: 'Yami: ARC Raiders External + Spoofer', description: 'External overlay + built-in spoofer', url: 'https://gmh-shop.com' },
         { name: 'BLITZ: ARC Raiders External', description: 'External visual assistance tool', url: 'https://gmh-shop.com' },
-        { name: 'Skyra: ARC Raiders Cheat', description: 'High performance ARC Raiders loader', url: 'https://gmh-shop.com' },
-        { name: 'AC-ARC Raiders', description: 'Clean external utility for ARC Raiders', url: 'https://gmh-shop.com' }
+        { name: 'Skyra: ARC Raiders Cheat', description: 'High performance ARC Raiders loader', url: 'https://gmh-shop.com' }
     ]],
     ['APEX', [
+        { name: 'Ancient Multi Loader', description: 'Universal Multi-Game Loader', url: 'https://telegra.ph/INJECTION-07-21-4' },
+        { name: 'Venom Loader', description: 'Multi-Game Venom Suite', url: 'https://discord.com/channels/1040987039270707231/1546976979494899842/1548698975132188672' },
         { name: 'Raiko: Apex Legends Internal', description: 'Precision internal feature set', url: 'https://gmh-shop.com' },
-        { name: 'Ancient: Apex Legends', description: 'Full featured loader for Apex', url: 'https://gmh-shop.com' },
-        { name: 'Venom: Apex Legends', description: 'Optimized external suite', url: 'https://gmh-shop.com' },
         { name: 'Arcane: Apex Legends', description: 'Kernel-level Apex loader', url: 'https://gmh-shop.com' }
     ]],
     ['FN', [
+        { name: 'Ancient Multi Loader', description: 'Universal Multi-Game Loader', url: 'https://telegra.ph/INJECTION-07-21-4' },
+        { name: 'Venom Loader', description: 'Multi-Game Venom Suite', url: 'https://discord.com/channels/1040987039270707231/1546976979494899842/1548698975132188672' },
         { name: 'Fortnite: Full Public', description: 'Public stable Fortnite loader', url: 'https://gmh-shop.com' },
-        { name: 'Venom: Fortnite', description: 'External performance utility', url: 'https://gmh-shop.com' },
-        { name: 'Ancient: Fortnite Cheat', description: 'Comprehensive Fortnite tool', url: 'https://gmh-shop.com' },
         { name: 'Arcane: Fortnite Cheat', description: 'Advanced security Fortnite loader', url: 'https://gmh-shop.com' },
         { name: 'EON Fortnite External', description: 'Smooth streaming-safe external', url: 'https://gmh-shop.com' }
     ]],
     ['DELTA FORCE', [
-        { name: 'Ancient: Delta Force', description: 'Delta Force Warfare internal utility', url: 'https://gmh-shop.com' },
-        { name: 'Delta Force: Grey Internal', description: 'Full memory internal tool', url: 'https://gmh-shop.com' }
+        { name: 'Ancient Multi Loader', description: 'Universal Multi-Game Loader', url: 'https://telegra.ph/INJECTION-07-21-4' },
+        { name: 'Delta Force: Grey Internal', description: 'Full memory internal tool', url: 'https://mega.nz/folder/fkZk2Yhb#34ZBBv2afccYgncfY0qpYw' }
     ]],
     ['PC PROTECTOR', [
-        { name: 'AimBetter COD Spoofer - [TEMP]', description: 'Temporary boot spoofer for Call of Duty', url: 'https://gmh-shop.com' },
-        { name: 'Rebooted HWID Spoofer', description: 'Universal hardware protection tool', url: 'https://gmh-shop.com' },
-        { name: 'Ham Privacy Protector for FiveM [SPOOFER]', description: 'CitizenFX/FiveM hardware unbanner', url: 'https://gmh-shop.com' },
-        { name: 'BO7 UNLOCKER + SPOOFER', description: 'Black Ops 6/7 camo unlocker & hardware mask', url: 'https://gmh-shop.com' },
-        { name: 'Natural Permanent Spoofer', description: 'Permanent BIOS/Motherboard serial changer', url: 'https://gmh-shop.com' },
-        { name: 'Ghost COD Spoofer - [TEMP]', description: 'Temporary memory spoofer for Warzone', url: 'https://gmh-shop.com' },
-        { name: 'Multi Temp Spoofer', description: 'Multi-game temporary cleaner & spoofer', url: 'https://gmh-shop.com' },
-        { name: 'Infinite Spoofer [RANKED READY] - [TEMP]', description: 'EAC/BattlEye/Ricochet Ranked spoofer', url: 'https://gmh-shop.com' }
+        { name: 'AimBetter COD Spoofer - [TEMP]', description: 'Temporary boot spoofer for Call of Duty', url: 'https://cloudfinity.win/s/LD8ScFXWHRacVConzAw/AimBetter/' },
+        { name: 'V1 Spoofer TPM', description: 'TPM & Hardware spoofer bypass', url: 'https://discord.com/channels/1040987039270707231/1546976979494899842/1548711994339623042' },
+        { name: 'Rebooted HWID Spoofer', description: 'Universal hardware protection tool', url: 'https://discord.com/channels/1040987039270707231/1546976979494899842/1548715595091148910' },
+        { name: 'BO7 UNLOCKER + SPOOFER', description: 'Black Ops 6/7 camo unlocker & hardware mask', url: 'https://gofile.io/d/iTfWtd' },
+        { name: 'Natural Permanent Spoofer', description: 'Permanent BIOS/Motherboard serial changer', url: 'https://gofile.io/d/xl29rV' },
+        { name: 'Ghost COD Spoofer - [TEMP]', description: 'Temporary memory spoofer for Warzone', url: 'https://gofile.io/d/0d1PPY' },
+        { name: 'Infinite Spoofer [RANKED READY] - [TEMP]', description: 'EAC/BattlEye/Ricochet Ranked spoofer', url: 'https://gofile.io/d/WQuZ9G' },
+        { name: 'Ham Privacy Protector for FiveM [SPOOFER]', description: 'CitizenFX/FiveM hardware unbanner', url: 'https://gmh-shop.com' }
     ]],
     ['VALORANT', [
         { name: 'Vanguard Emulator PRIVATE', description: 'Private Vanguard hypervisor bypass', url: 'https://gmh-shop.com' },
@@ -165,14 +165,15 @@ const downloadCatalog = new Map([
         { name: 'Valorant: Public Full', description: 'Complete Valorant feature set', url: 'https://gmh-shop.com' }
     ]],
     ['COD', [
-        { name: 'Ancient: COD External', description: 'Warzone / BO6 external tool', url: 'https://gmh-shop.com' },
-        { name: 'Grey - Silver DMZ/MWII Internal', description: 'Legacy MW2 & DMZ internal suite', url: 'https://gmh-shop.com' },
-        { name: '[BO7/WZ] Thunex External', description: 'BO6 / Warzone external feature set', url: 'https://gmh-shop.com' },
+        { name: 'Ancient Multi Loader', description: 'Universal Multi-Game Loader', url: 'https://telegra.ph/INJECTION-07-21-4' },
+        { name: '[BO7/WZ] Thunex External', description: 'BO6 / Warzone external feature set', url: 'https://mega.nz/folder/r89TgQLb#lwDeuDq6RSJPBm5RPMXq3g' },
+        { name: 'MW19 Unlock Tool & Temp Chair', description: 'MW19 unlocker and tactical assistance', url: 'https://mega.nz/folder/fGwAlJzS#B7gSoyeWlMq_bjsWH1O_hg' },
+        { name: 'Grey - Silver DMZ/MWII Internal', description: 'Legacy MW2 & DMZ internal suite', url: 'https://gofile.io/d/fVVwcY' },
+        { name: 'CA-Call of Duty: BO7 | Warzone', description: 'Complete Call of Duty assistance tool', url: 'https://discord.com/channels/1040987039270707231/1546976979494899842/1548719980340846602' },
+        { name: 'DW COD-7 / MW-4 External', description: 'DW external memory loader', url: 'https://discord.com/channels/1040987039270707231/1546976979494899842/1548720239058100276' },
         { name: 'BO7: Royal External', description: 'Royal premium external overlay', url: 'https://gmh-shop.com' },
-        { name: 'CA-Call of Duty: BO7 | Warzone', description: 'Complete Call of Duty assistance tool', url: 'https://gmh-shop.com' },
         { name: 'MW4 & BO7 - Kairos External', description: 'Kairos external engine', url: 'https://gmh-shop.com' },
-        { name: '[MW4 BETA] Lyra External - Day ACESS', description: 'Lyra external loader suite', url: 'https://gmh-shop.com' },
-        { name: 'DW COD-7 / MW-4 External', description: 'DW external memory loader', url: 'https://gmh-shop.com' }
+        { name: '[MW4 BETA] Lyra External - Day ACESS', description: 'Lyra external loader suite', url: 'https://gmh-shop.com' }
     ]],
     ['CS2', [
         { name: 'CS2: Skin Changer', description: 'Instant weapon skin and knife switcher', url: 'https://gmh-shop.com' },
@@ -180,35 +181,35 @@ const downloadCatalog = new Map([
         { name: 'CS2: Aim Internal', description: 'Internal kernel memory suite for CS2', url: 'https://gmh-shop.com' }
     ]],
     ['R6S', [
+        { name: 'Ancient Multi Loader', description: 'Universal Multi-Game Loader', url: 'https://telegra.ph/INJECTION-07-21-4' },
+        { name: 'Crusader: Rainbow Six Siege', description: 'Crusader security-tested loader', url: 'https://uniqueloader.com/r6s/' },
         { name: 'Sapphire: R6S Unlock All', description: 'All weapon skins, charms, and operators', url: 'https://gmh-shop.com' },
-        { name: 'Vega - R6 External', description: 'Stream-proof external Siege overlay', url: 'https://gmh-shop.com' },
-        { name: 'Ancient: Rainbow Six Siege', description: 'Full Siege internal assistance', url: 'https://gmh-shop.com' },
-        { name: 'Crusader: Rainbow Six Siege', description: 'Crusader security-tested loader', url: 'https://gmh-shop.com' }
+        { name: 'Vega - R6 External', description: 'Stream-proof external Siege overlay', url: 'https://gmh-shop.com' }
     ]],
     ['RUST', [
+        { name: 'Ancient Multi Loader', description: 'Universal Multi-Game Loader', url: 'https://telegra.ph/INJECTION-07-21-4' },
         { name: 'MEK - Rust External', description: 'Smooth recoil & visual external tool', url: 'https://gmh-shop.com' },
-        { name: 'Ancient: Rust', description: 'Comprehensive Rust internal engine', url: 'https://gmh-shop.com' },
         { name: 'Arcane: Rust', description: 'Long-term undetected Rust utility', url: 'https://gmh-shop.com' }
     ]],
     ['ARENA BREAKOUT', [
+        { name: 'CA - Arena Breakout Infinite', description: 'Full feature loader for Infinite', url: 'https://discord.com/channels/1040987039270707231/1546976979494899842/1548719980340846602' },
         { name: 'Akuma - Arena Breakout', description: 'Internal memory suite for ABI', url: 'https://gmh-shop.com' },
-        { name: 'Ancient: ABI Radar', description: '2D Web / Overlay radar assistance', url: 'https://gmh-shop.com' },
-        { name: 'CA - Arena Breakout Infinite', description: 'Full feature loader for Infinite', url: 'https://gmh-shop.com' }
+        { name: 'Ancient: ABI Radar', description: '2D Web / Overlay radar assistance', url: 'https://gmh-shop.com' }
     ]],
     ['FIVE M', [
         { name: 'Arcane: GTA V Enhanced', description: 'Enhanced utility for Grand Theft Auto V', url: 'https://gmh-shop.com' },
         { name: 'Ham Exec + Vanity Menu Bundle', description: 'Complete Lua executor and menu bundle', url: 'https://gmh-shop.com' }
     ]],
     ['BATTLEFIELD 6', [
-        { name: 'Ancient: Battlefield 6', description: 'Battlefield engine memory utility', url: 'https://gmh-shop.com' },
+        { name: 'Ancient Multi Loader', description: 'Universal Multi-Game Loader', url: 'https://telegra.ph/INJECTION-07-21-4' },
         { name: 'Arcane: Battlefield 6', description: 'External tactical overlay', url: 'https://gmh-shop.com' }
     ]],
     ['DEAD BY DAYLIGHT', [
-        { name: 'Ancient: Dead By Daylight', description: 'Full survivor and killer ESP', url: 'https://gmh-shop.com' },
+        { name: 'Ancient Multi Loader', description: 'Universal Multi-Game Loader', url: 'https://telegra.ph/INJECTION-07-21-4' },
         { name: 'Arcane: Dead By Daylight', description: 'Skill check and entity highlighter', url: 'https://gmh-shop.com' }
     ]],
     ['ESCAPE FROM TARKOV', [
-        { name: 'Ancient: Escape From Tarkov', description: 'Loot filter, PMC visual, and memory suite', url: 'https://gmh-shop.com' }
+        { name: 'Ancient Multi Loader', description: 'Universal Multi-Game Loader', url: 'https://telegra.ph/INJECTION-07-21-4' }
     ]],
     ['DAYZ', [
         { name: 'Arcane: DayZ', description: 'Inventory radar, player ESP & item tracker', url: 'https://gmh-shop.com' }
@@ -226,10 +227,10 @@ const downloadCatalog = new Map([
         { name: 'Mimicry: Meccha Chameleon Internal', description: 'Internal specialized assistance tool', url: 'https://gmh-shop.com' }
     ]],
     ['SCUM', [
-        { name: 'CA - SCUM', description: 'Survival item tracker and precision tools', url: 'https://gmh-shop.com' }
+        { name: 'CA - SCUM', description: 'Survival item tracker and precision tools', url: 'https://discord.com/channels/1040987039270707231/1546976979494899842/1548719980340846602' }
     ]],
     ['PUBG', [
-        { name: 'Ancient: PUBG', description: 'Recoil compensation & player ESP', url: 'https://gmh-shop.com' }
+        { name: 'Ancient Multi Loader', description: 'Universal Multi-Game Loader', url: 'https://telegra.ph/INJECTION-07-21-4' }
     ]],
     ['SUPPORT', [
         { name: 'GMH Support Tool', description: 'Diagnostic & prerequisite runtime installer', url: 'https://gmh-shop.com' }
@@ -246,62 +247,35 @@ function parseDuration(str) {
     return val * mults[unit];
 }
 
-// Interactive Category Hub UI builders
-function buildAdminHubMainView() {
-    const totalItems = Array.from(downloadCatalog.values()).flat().length;
-    const embed = new EmbedBuilder()
-        .setTitle('🛠️ GMH Catalog Control Center')
-        .setDescription(
-            `Select a category below to inspect its contents, add items, or remove tools.\n\n` +
-            `📊 **Current Stats:** \`${totalItems}\` active tools | \`${downloadCatalog.size}\` categories`
-        )
+function buildAdminCatalogEmbed() {
+    let inventoryDesc = '';
+    let totalItems = 0;
+
+    for (const [cat, prods] of downloadCatalog.entries()) {
+        totalItems += prods.length;
+        const toolNames = prods.map(p => `\`${p.name}\``).join(', ');
+        inventoryDesc += `📁 **${cat}** (${prods.length}):\n${toolNames || '*None*'}\n\n`;
+    }
+
+    if (inventoryDesc.length > 3900) {
+        inventoryDesc = inventoryDesc.slice(0, 3900) + '...\n*(Inventory truncated due to Discord length limit)*';
+    }
+
+    return new EmbedBuilder()
+        .setTitle('🛠️ GMH Download Catalog Control')
+        .setDescription(`Current tools configured in the catalog.\n\n${inventoryDesc}`)
         .setColor(0xFF0055)
+        .setFooter({ text: `Total Loaders: ${totalItems} | Total Categories: ${downloadCatalog.size}` })
         .setTimestamp();
-
-    const categories = Array.from(downloadCatalog.keys());
-    const selectMenu = new StringSelectMenuBuilder()
-        .setCustomId('dl_hub_select_category')
-        .setPlaceholder('📁 Select a category to manage...')
-        .addOptions(
-            categories.slice(0, 25).map(cat => ({
-                label: cat,
-                description: `${downloadCatalog.get(cat).length} tool(s) inside`,
-                value: cat,
-                emoji: '📂'
-            }))
-        );
-
-    const row1 = new ActionRowBuilder().addComponents(selectMenu);
-    const row2 = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('dl_hub_create_category').setLabel('Create Category').setStyle(ButtonStyle.Success).setEmoji('➕'),
-        new ButtonBuilder().setCustomId('dl_hub_refresh').setLabel('Refresh Hub').setStyle(ButtonStyle.Secondary).setEmoji('🔄')
-    );
-
-    return { embeds: [embed], components: [row1, row2] };
 }
 
-function buildCategoryHubView(category) {
-    const products = downloadCatalog.get(category) || [];
-    const toolList = products.map(p => `• \`${p.name}\` — *${p.description}*`).join('\n') || '*No tools configured in this category.*';
-
-    const embed = new EmbedBuilder()
-        .setTitle(`📁 Category Hub: ${category}`)
-        .setDescription(`Managing tools inside **${category}** (${products.length} total):\n\n${toolList}`)
-        .setColor(0x00E5FF)
-        .setTimestamp();
-
-    const row1 = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId(`hub_add_tool:::${category}`).setLabel('Add Tool Here').setStyle(ButtonStyle.Success).setEmoji('➕'),
-        new ButtonBuilder().setCustomId(`hub_edit_tool:::${category}`).setLabel('Edit Tool').setStyle(ButtonStyle.Primary).setEmoji('✏️'),
-        new ButtonBuilder().setCustomId(`hub_del_tool:::${category}`).setLabel('Delete Tools').setStyle(ButtonStyle.Danger).setEmoji('🗑️')
+function buildAdminControlRow() {
+    return new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('dl_admin_open_add').setLabel('Add Product (Multi-Game)').setStyle(ButtonStyle.Success).setEmoji('➕'),
+        new ButtonBuilder().setCustomId('dl_admin_open_edit').setLabel('Edit Product Link').setStyle(ButtonStyle.Primary).setEmoji('✏️'),
+        new ButtonBuilder().setCustomId('dl_admin_open_remove').setLabel('Remove Product/Group').setStyle(ButtonStyle.Danger).setEmoji('🗑️'),
+        new ButtonBuilder().setCustomId('dl_admin_refresh_view').setLabel('Refresh List').setStyle(ButtonStyle.Secondary).setEmoji('🔄')
     );
-
-    const row2 = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId(`hub_del_group:::${category}`).setLabel('Delete Entire Category').setStyle(ButtonStyle.Danger).setEmoji('🗂️'),
-        new ButtonBuilder().setCustomId('dl_hub_back_main').setLabel('◀ Back to Categories').setStyle(ButtonStyle.Secondary)
-    );
-
-    return { embeds: [embed], components: [row1, row2] };
 }
 
 const APP_QUESTIONS = [
@@ -344,15 +318,9 @@ client.on('guildMemberRemove', async (member) => {
                            await member.guild.channels.fetch(CONFIG.STAFF_DISPATCH_CHANNEL_ID).catch(() => null);
         if (!logChannel) return;
 
-        const joinedTimestamp = member.joinedTimestamp 
-            ? `<t:${Math.floor(member.joinedTimestamp / 1000)}:R>` 
-            : 'Unknown';
+        const joinedTimestamp = member.joinedTimestamp ? `<t:${Math.floor(member.joinedTimestamp / 1000)}:R>` : 'Unknown';
         const createdTimestamp = `<t:${Math.floor(member.user.createdTimestamp / 1000)}:R>`;
-
-        const roles = member.roles.cache
-            .filter(r => r.id !== member.guild.id)
-            .map(r => r.name)
-            .join(', ') || 'None';
+        const roles = member.roles.cache.filter(r => r.id !== member.guild.id).map(r => r.name).join(', ') || 'None';
 
         const leaveEmbed = new EmbedBuilder()
             .setColor(0xE74C3C)
@@ -391,16 +359,8 @@ async function dispatchWelcomeMessage(member) {
         }
 
         const actionRow = new ActionRowBuilder().addComponents(
-            new ButtonBuilder()
-                .setLabel('Shop Catalog')
-                .setStyle(ButtonStyle.Link)
-                .setURL(WELCOME_CONFIG.storeUrl || CONFIG.DEFAULT_STORE_URL)
-                .setEmoji('🛒'),
-            new ButtonBuilder()
-                .setLabel('Open Support Ticket')
-                .setStyle(ButtonStyle.Link)
-                .setURL(CONFIG.TICKET_CHANNEL_LINK)
-                .setEmoji('🎟️')
+            new ButtonBuilder().setLabel('Shop Catalog').setStyle(ButtonStyle.Link).setURL(WELCOME_CONFIG.storeUrl || CONFIG.DEFAULT_STORE_URL).setEmoji('🛒'),
+            new ButtonBuilder().setLabel('Open Support Ticket').setStyle(ButtonStyle.Link).setURL(CONFIG.TICKET_CHANNEL_LINK).setEmoji('🎟️')
         );
 
         await member.send({ embeds: [welcomeEmbed], components: [actionRow] });
@@ -451,33 +411,19 @@ async function nukeChannel(channelId) {
 
 function buildTicketControlRow(isClaimed = false) {
     return new ActionRowBuilder().addComponents(
-        new ButtonBuilder()
-            .setCustomId('close_ticket')
-            .setLabel('Close')
-            .setStyle(ButtonStyle.Danger)
-            .setEmoji('🔒'),
-        new ButtonBuilder()
-            .setCustomId('claim_ticket')
-            .setLabel('Claim')
-            .setStyle(ButtonStyle.Primary)
-            .setEmoji('🙋')
-            .setDisabled(isClaimed),
-        new ButtonBuilder()
-            .setCustomId('unclaim_ticket')
-            .setLabel('Unclaim')
-            .setStyle(ButtonStyle.Secondary)
-            .setEmoji('🔄')
-            .setDisabled(!isClaimed)
+        new ButtonBuilder().setCustomId('close_ticket').setLabel('Close').setStyle(ButtonStyle.Danger).setEmoji('🔒'),
+        new ButtonBuilder().setCustomId('claim_ticket').setLabel('Claim').setStyle(ButtonStyle.Primary).setEmoji('🙋').setDisabled(isClaimed),
+        new ButtonBuilder().setCustomId('unclaim_ticket').setLabel('Unclaim').setStyle(ButtonStyle.Secondary).setEmoji('🔄').setDisabled(!isClaimed)
     );
 }
 
 // =============================================================
-// MESSAGE HANDLER: AUTOMOD, AFK ROUTING & COMMANDS
+// MESSAGE HANDLER: AUTOMOD, AFK & COMMANDS
 // =============================================================
 client.on('messageCreate', async (message) => {
     if (message.author.bot || !message.guild) return;
 
-    // 1. AUTOMOD FILTER (Persistent Warning)
+    // 1. AUTOMOD FILTER (Permanent Embeds)
     if (message.author.id !== '659477576422785025' && message.member) {
         const contentLower = message.content.toLowerCase();
         const matchedWord = BANNED_KEYWORDS.find(keyword => contentLower.includes(keyword.toLowerCase()));
@@ -533,11 +479,7 @@ client.on('messageCreate', async (message) => {
                         .setColor(0x00E5FF);
 
                     const ticketActionRow = new ActionRowBuilder().addComponents(
-                        new ButtonBuilder()
-                            .setLabel('Open Support Ticket')
-                            .setStyle(ButtonStyle.Link)
-                            .setURL(CONFIG.TICKET_CHANNEL_LINK)
-                            .setEmoji('🎟️')
+                        new ButtonBuilder().setLabel('Open Support Ticket').setStyle(ButtonStyle.Link).setURL(CONFIG.TICKET_CHANNEL_LINK).setEmoji('🎟️')
                     );
 
                     const afkReply = await message.channel.send({
@@ -566,11 +508,7 @@ client.on('messageCreate', async (message) => {
 
     if (command === 'afk') {
         const reason = args.join(' ').trim() || 'Busy handling orders & updates';
-        afkUsers.set(message.author.id, {
-            reason: reason,
-            timestamp: Date.now()
-        });
-
+        afkUsers.set(message.author.id, { reason, timestamp: Date.now() });
         const confirmMsg = await message.reply(`💤 ${message.author}, your AFK status is active: \`${reason}\`.\nI'll notify anyone who mentions you and direct them to tickets.`);
         setTimeout(() => {
             message.delete().catch(() => {});
@@ -582,7 +520,6 @@ client.on('messageCreate', async (message) => {
     if (command === 'shift-off' || command === 'shift-close') {
         if (!isAdmin) return message.reply('❌ Admin permission required.');
         await message.delete().catch(() => {});
-
         try {
             if (sendShiftUpdate) await sendShiftUpdate(client, 'closed');
             const confirmMsg = await message.channel.send('✅ Manual **Shift Closed (Off Hours)** announcement published.');
@@ -595,7 +532,6 @@ client.on('messageCreate', async (message) => {
     if (command === 'shift-on' || command === 'shift-open') {
         if (!isAdmin) return message.reply('❌ Admin permission required.');
         await message.delete().catch(() => {});
-
         try {
             if (sendShiftUpdate) await sendShiftUpdate(client, 'open');
             const confirmMsg = await message.channel.send('✅ Manual **Shift Open (Online)** announcement published.');
@@ -612,7 +548,6 @@ client.on('messageCreate', async (message) => {
     if (command === 'sendwelcome') {
         if (!isAdmin) return message.reply('❌ Admin permission required.');
         const targetMember = message.mentions.members.first() || message.member;
-
         const sent = await dispatchWelcomeMessage(targetMember);
         if (sent) {
             return message.reply(`✅ Welcome DM successfully dispatched to ${targetMember}!`);
@@ -898,8 +833,10 @@ client.on('messageCreate', async (message) => {
         if (!isAdmin) return message.reply('❌ Admin permission required.');
         await message.delete().catch(() => {});
 
-        const hub = buildAdminHubMainView();
-        return await message.channel.send({ embeds: hub.embeds, components: hub.components });
+        const adminEmbed = buildAdminCatalogEmbed();
+        const adminRow = buildAdminControlRow();
+
+        return await message.channel.send({ embeds: [adminEmbed], components: [adminRow] });
     }
 });
 
@@ -943,10 +880,7 @@ client.on('interactionCreate', async (interaction) => {
             WELCOME_CONFIG.bannerUrl = interaction.fields.getTextInputValue('w_banner')?.trim() || CONFIG.PERMANENT_BANNER_URL;
             WELCOME_CONFIG.storeUrl = interaction.fields.getTextInputValue('w_store')?.trim() || CONFIG.DEFAULT_STORE_URL;
 
-            return await interaction.reply({ 
-                content: '✅ Automated Welcome DM successfully updated!', 
-                ephemeral: true 
-            });
+            return await interaction.reply({ content: '✅ Automated Welcome DM successfully updated!', ephemeral: true });
         }
 
         if (interaction.isButton() && interaction.customId === 'btn_preview_welcome') {
@@ -1166,134 +1100,118 @@ client.on('interactionCreate', async (interaction) => {
             }
         }
 
-        // 4. CATEGORY ACTION HUB CONTROLS
+        // 4. MAIN ADMIN CATALOG MANAGEMENT (WITH MULTI-CATEGORY ADD & NAVIGATION BACK BUTTONS)
         if (interaction.isButton()) {
-            if (interaction.customId === 'dl_hub_refresh' || interaction.customId === 'dl_hub_back_main') {
+            if (interaction.customId === 'dl_admin_refresh_view') {
                 if (!isAdmin) return await interaction.reply({ content: '❌ Admin required.', ephemeral: true });
-                const hub = buildAdminHubMainView();
-                return await interaction.update({ content: null, embeds: hub.embeds, components: hub.components });
+                return await interaction.update({ embeds: [buildAdminCatalogEmbed()], components: [buildAdminControlRow()] });
             }
 
-            if (interaction.customId === 'dl_hub_create_category') {
+            // MULTI-CATEGORY ADD (SELECT UP TO 10 AT ONCE)
+            if (interaction.customId === 'dl_admin_open_add') {
                 if (!isAdmin) return await interaction.reply({ content: '❌ Admin required.', ephemeral: true });
 
-                const modal = new ModalBuilder()
-                    .setCustomId('modal_hub_new_category')
-                    .setTitle('Create New Game Category');
-
-                modal.addComponents(
-                    new ActionRowBuilder().addComponents(
-                        new TextInputBuilder().setCustomId('new_cat_name').setLabel('Category Name (e.g. THE FINALS)').setStyle(TextInputStyle.Short).setRequired(true)
-                    ),
-                    new ActionRowBuilder().addComponents(
-                        new TextInputBuilder().setCustomId('tool_name').setLabel('First Tool Name').setStyle(TextInputStyle.Short).setRequired(true)
-                    ),
-                    new ActionRowBuilder().addComponents(
-                        new TextInputBuilder().setCustomId('tool_desc').setLabel('Tool Description').setStyle(TextInputStyle.Short).setRequired(true)
-                    ),
-                    new ActionRowBuilder().addComponents(
-                        new TextInputBuilder().setCustomId('tool_url').setLabel('Download URL / Message Link').setStyle(TextInputStyle.Short).setRequired(true)
-                    )
-                );
-
-                return await interaction.showModal(modal);
-            }
-
-            if (interaction.customId.startsWith('hub_add_tool:::')) {
-                if (!isAdmin) return await interaction.reply({ content: '❌ Admin required.', ephemeral: true });
-                const category = interaction.customId.replace('hub_add_tool:::', '');
-
-                const modal = new ModalBuilder()
-                    .setCustomId(`modal_hub_add_single:::${encodeURIComponent(category)}`)
-                    .setTitle(`Add Tool to ${category}`.slice(0, 45));
-
-                modal.addComponents(
-                    new ActionRowBuilder().addComponents(
-                        new TextInputBuilder().setCustomId('tool_name').setLabel('Tool Name').setStyle(TextInputStyle.Short).setRequired(true)
-                    ),
-                    new ActionRowBuilder().addComponents(
-                        new TextInputBuilder().setCustomId('tool_desc').setLabel('Short Description').setStyle(TextInputStyle.Short).setRequired(true)
-                    ),
-                    new ActionRowBuilder().addComponents(
-                        new TextInputBuilder().setCustomId('tool_url').setLabel('Download URL / Message Link').setStyle(TextInputStyle.Short).setRequired(true)
-                    )
-                );
-
-                return await interaction.showModal(modal);
-            }
-
-            if (interaction.customId.startsWith('hub_edit_tool:::')) {
-                if (!isAdmin) return await interaction.reply({ content: '❌ Admin required.', ephemeral: true });
-                const category = interaction.customId.replace('hub_edit_tool:::', '');
-                const prods = downloadCatalog.get(category) || [];
-
-                if (prods.length === 0) {
-                    return await interaction.reply({ content: `⚠️ No products found in **${category}** to edit.`, ephemeral: true });
-                }
+                const existingCategories = Array.from(downloadCatalog.keys());
+                const selectOptions = [
+                    {
+                        label: '➕ Create Brand New Category',
+                        description: 'Add an entirely new category to the catalog',
+                        value: '__NEW_CATEGORY__',
+                        emoji: '✨'
+                    },
+                    ...existingCategories.slice(0, 24).map(cat => ({
+                        label: `Add inside: ${cat}`.slice(0, 100),
+                        description: `Currently has ${downloadCatalog.get(cat).length} product(s)`.slice(0, 100),
+                        value: cat,
+                        emoji: '📁'
+                    }))
+                ];
 
                 const selectMenu = new StringSelectMenuBuilder()
-                    .setCustomId(`hub_select_edit_tool:::${encodeURIComponent(category)}`)
-                    .setPlaceholder('Select tool to edit')
-                    .addOptions(
-                        prods.slice(0, 25).map(p => ({
-                            label: p.name.slice(0, 100),
-                            description: p.description.slice(0, 50),
-                            value: p.name,
-                            emoji: '✏️'
-                        }))
-                    );
-
-                const row = new ActionRowBuilder().addComponents(selectMenu);
-                const backRow = new ActionRowBuilder().addComponents(
-                    new ButtonBuilder().setCustomId(`hub_back_to_cat:::${encodeURIComponent(category)}`).setLabel('◀ Back to Category Hub').setStyle(ButtonStyle.Secondary)
-                );
-                return await interaction.update({ content: `Select the tool in **${category}** you want to edit:`, embeds: [], components: [row, backRow] });
-            }
-
-            if (interaction.customId.startsWith('hub_del_tool:::')) {
-                if (!isAdmin) return await interaction.reply({ content: '❌ Admin required.', ephemeral: true });
-                const category = interaction.customId.replace('hub_del_tool:::', '');
-                const prods = downloadCatalog.get(category) || [];
-
-                if (prods.length === 0) {
-                    return await interaction.reply({ content: `⚠️ No products found in **${category}** to delete.`, ephemeral: true });
-                }
-
-                const selectMenu = new StringSelectMenuBuilder()
-                    .setCustomId(`hub_select_del_tool:::${encodeURIComponent(category)}`)
-                    .setPlaceholder('Select one or more tools to delete')
+                    .setCustomId('dl_admin_choose_add_category')
+                    .setPlaceholder('Select the categories to link this tool to...')
                     .setMinValues(1)
-                    .setMaxValues(Math.min(prods.length, 25))
+                    .setMaxValues(Math.min(selectOptions.length, 10))
+                    .addOptions(selectOptions);
+
+                const row1 = new ActionRowBuilder().addComponents(selectMenu);
+                const row2 = new ActionRowBuilder().addComponents(
+                    new ButtonBuilder().setCustomId('dl_admin_back_to_main').setLabel('◀ Back to Admin Dashboard').setStyle(ButtonStyle.Secondary)
+                );
+
+                return await interaction.reply({
+                    content: 'Select one or multiple categories to link this tool to simultaneously:',
+                    components: [row1, row2],
+                    ephemeral: true
+                });
+            }
+
+            // EDIT PRODUCT
+            if (interaction.customId === 'dl_admin_open_edit') {
+                if (!isAdmin) return await interaction.reply({ content: '❌ Admin required.', ephemeral: true });
+
+                const categories = Array.from(downloadCatalog.keys());
+                const selectMenu = new StringSelectMenuBuilder()
+                    .setCustomId('dl_admin_edit_choose_category')
+                    .setPlaceholder('Step 1: Choose category containing the tool')
                     .addOptions(
-                        prods.slice(0, 25).map(p => ({
-                            label: p.name.slice(0, 100),
-                            description: p.description.slice(0, 50),
-                            value: p.name,
-                            emoji: '🗑️'
+                        categories.slice(0, 25).map(cat => ({
+                            label: cat,
+                            description: `${downloadCatalog.get(cat).length} product(s)`,
+                            value: cat,
+                            emoji: '📁'
                         }))
                     );
 
-                const row = new ActionRowBuilder().addComponents(selectMenu);
-                const backRow = new ActionRowBuilder().addComponents(
-                    new ButtonBuilder().setCustomId(`hub_back_to_cat:::${encodeURIComponent(category)}`).setLabel('◀ Back to Category Hub').setStyle(ButtonStyle.Secondary)
+                const row1 = new ActionRowBuilder().addComponents(selectMenu);
+                const row2 = new ActionRowBuilder().addComponents(
+                    new ButtonBuilder().setCustomId('dl_admin_back_to_main').setLabel('◀ Back to Admin Dashboard').setStyle(ButtonStyle.Secondary)
                 );
-                return await interaction.update({ content: `Select tools inside **${category}** to delete (multi-select supported):`, embeds: [], components: [row, backRow] });
+
+                return await interaction.reply({
+                    content: 'Select the category containing the tool you want to edit:',
+                    components: [row1, row2],
+                    ephemeral: true
+                });
             }
 
-            if (interaction.customId.startsWith('hub_del_group:::')) {
+            // REMOVE PRODUCT / GROUP
+            if (interaction.customId === 'dl_admin_open_remove') {
                 if (!isAdmin) return await interaction.reply({ content: '❌ Admin required.', ephemeral: true });
-                const category = interaction.customId.replace('hub_del_group:::', '');
 
-                downloadCatalog.delete(category);
-                const hub = buildAdminHubMainView();
-                return await interaction.update({ content: `🗑️ Successfully deleted entire category group **${category}**!`, embeds: hub.embeds, components: hub.components });
+                const categories = Array.from(downloadCatalog.keys());
+                const selectMenu = new StringSelectMenuBuilder()
+                    .setCustomId('dl_admin_remove_choose_category')
+                    .setPlaceholder('Select category to manage removals')
+                    .addOptions(
+                        categories.slice(0, 25).map(cat => ({
+                            label: cat,
+                            description: `${downloadCatalog.get(cat).length} product(s) inside`,
+                            value: cat,
+                            emoji: '📁'
+                        }))
+                    );
+
+                const row1 = new ActionRowBuilder().addComponents(selectMenu);
+                const row2 = new ActionRowBuilder().addComponents(
+                    new ButtonBuilder().setCustomId('dl_admin_back_to_main').setLabel('◀ Back to Admin Dashboard').setStyle(ButtonStyle.Secondary)
+                );
+
+                return await interaction.reply({
+                    content: 'Choose a category to remove tools from or delete entirely:',
+                    components: [row1, row2],
+                    ephemeral: true
+                });
             }
 
-            if (interaction.customId.startsWith('hub_back_to_cat:::')) {
+            // BACK BUTTON TO RETURN TO ADMIN DASHBOARD
+            if (interaction.customId === 'dl_admin_back_to_main') {
                 if (!isAdmin) return await interaction.reply({ content: '❌ Admin required.', ephemeral: true });
-                const category = decodeURIComponent(interaction.customId.replace('hub_back_to_cat:::', ''));
-                const view = buildCategoryHubView(category);
-                return await interaction.update({ content: null, embeds: view.embeds, components: view.components });
+                return await interaction.update({
+                    content: 'Admin Panel refreshed:',
+                    embeds: [buildAdminCatalogEmbed()],
+                    components: [buildAdminControlRow()]
+                });
             }
 
             // Customer Download Panel: Reset / Clear Selection
@@ -1317,65 +1235,197 @@ client.on('interactionCreate', async (interaction) => {
         }
 
         if (interaction.isStringSelectMenu()) {
-            // Main Admin Catalog Dropdown -> Opens Category Hub
-            if (interaction.customId === 'dl_hub_select_category') {
+            // MULTI-CATEGORY ADD MODAL LAUNCHER (Safe Map Storage)
+            if (interaction.customId === 'dl_admin_choose_add_category') {
                 if (!isAdmin) return await interaction.reply({ content: '❌ Admin required.', ephemeral: true });
-                const category = interaction.values[0];
-                const view = buildCategoryHubView(category);
-                return await interaction.update({ embeds: view.embeds, components: view.components });
-            }
 
-            // Edit Tool Selection -> Opens Modal
-            if (interaction.customId.startsWith('hub_select_edit_tool:::')) {
-                if (!isAdmin) return await interaction.reply({ content: '❌ Admin required.', ephemeral: true });
-                const category = decodeURIComponent(interaction.customId.replace('hub_select_edit_tool:::', ''));
-                const productName = interaction.values[0];
-                const products = downloadCatalog.get(category) || [];
-                const product = products.find(p => p.name === productName);
+                const selected = interaction.values;
+                const isNew = selected.includes('__NEW_CATEGORY__');
 
-                if (!product) return await interaction.reply({ content: '❌ Product not found.', ephemeral: true });
+                if (isNew && selected.length > 1) {
+                    return await interaction.reply({
+                        content: '⚠️ When creating a brand new category, please select only the `Create Brand New Category` option.',
+                        ephemeral: true
+                    });
+                }
 
-                pendingAdminData.set(interaction.user.id, { category, oldName: product.name });
+                pendingMultiAdd.set(interaction.user.id, selected);
 
                 const modal = new ModalBuilder()
-                    .setCustomId('modal_hub_edit_save')
-                    .setTitle(`Edit ${product.name.slice(0, 30)}`);
+                    .setCustomId('modal_dl_add_product_MULTI')
+                    .setTitle(isNew ? 'Create New Category & Tool' : `Add Tool (${selected.length} Categories)`.slice(0, 45));
+
+                if (isNew) {
+                    modal.addComponents(
+                        new ActionRowBuilder().addComponents(
+                            new TextInputBuilder().setCustomId('dl_new_cat_name').setLabel('New Category Name (e.g. THE FINALS)').setStyle(TextInputStyle.Short).setRequired(true)
+                        )
+                    );
+                }
 
                 modal.addComponents(
                     new ActionRowBuilder().addComponents(
-                        new TextInputBuilder().setCustomId('edit_name').setLabel('Tool Name').setValue(product.name).setStyle(TextInputStyle.Short).setRequired(true)
+                        new TextInputBuilder().setCustomId('dl_name').setLabel('Tool Name (e.g. Ancient Loader)').setPlaceholder('e.g. Ancient Multi-Game Suite').setStyle(TextInputStyle.Short).setRequired(true)
                     ),
                     new ActionRowBuilder().addComponents(
-                        new TextInputBuilder().setCustomId('edit_desc').setLabel('Short Description').setValue(product.description).setStyle(TextInputStyle.Short).setRequired(true)
+                        new TextInputBuilder().setCustomId('dl_desc').setLabel('Short Description').setPlaceholder('Universal loader for selected games').setStyle(TextInputStyle.Short).setRequired(true)
                     ),
                     new ActionRowBuilder().addComponents(
-                        new TextInputBuilder().setCustomId('edit_url').setLabel('Download URL / Message Link').setValue(product.url).setStyle(TextInputStyle.Short).setRequired(true)
+                        new TextInputBuilder().setCustomId('dl_url').setLabel('Download URL / Message Link').setPlaceholder('https://...').setStyle(TextInputStyle.Short).setRequired(true)
                     )
                 );
 
                 return await interaction.showModal(modal);
             }
 
-            // Multi-Tool Deletion Submission
-            if (interaction.customId.startsWith('hub_select_del_tool:::')) {
+            // REMOVAL SELECTOR (WITH BATCH MULTI-DELETE + BACK BUTTON)
+            if (interaction.customId === 'dl_admin_remove_choose_category') {
                 if (!isAdmin) return await interaction.reply({ content: '❌ Admin required.', ephemeral: true });
-                const category = decodeURIComponent(interaction.customId.replace('hub_select_del_tool:::', ''));
-                const toolsToDelete = interaction.values;
-                const products = downloadCatalog.get(category) || [];
 
-                for (const toolName of toolsToDelete) {
-                    const idx = products.findIndex(p => p.name === toolName);
-                    if (idx !== -1) products.splice(idx, 1);
-                }
+                const category = interaction.values[0];
+                const prods = downloadCatalog.get(category) || [];
 
-                if (products.length === 0) {
+                const options = [
+                    {
+                        label: `📁 Remove Entire Group: ${category}`.slice(0, 100),
+                        description: `Deletes all ${prods.length} product(s) in this category`,
+                        value: `DEL_GROUP:::${category}`,
+                        emoji: '🗂️'
+                    },
+                    ...prods.slice(0, 24).map(p => ({
+                        label: p.name.slice(0, 100),
+                        description: `Delete single item`.slice(0, 100),
+                        value: `DEL_TOOL:::${category}:::${p.name}`,
+                        emoji: '🗑️'
+                    }))
+                ];
+
+                const selectMenu = new StringSelectMenuBuilder()
+                    .setCustomId('dl_admin_select_delete')
+                    .setPlaceholder(`Delete options for ${category}`)
+                    .setMinValues(1)
+                    .setMaxValues(1)
+                    .addOptions(options);
+
+                const row1 = new ActionRowBuilder().addComponents(selectMenu);
+                const row2 = new ActionRowBuilder().addComponents(
+                    new ButtonBuilder().setCustomId('dl_admin_back_to_main').setLabel('◀ Back to Admin Dashboard').setStyle(ButtonStyle.Secondary)
+                );
+
+                return await interaction.update({
+                    content: `Manage removals inside **${category}**:`,
+                    components: [row1, row2]
+                });
+            }
+
+            if (interaction.customId === 'dl_admin_select_delete') {
+                if (!isAdmin) return await interaction.reply({ content: '❌ Admin required.', ephemeral: true });
+
+                const payload = interaction.values[0];
+                const backRow = new ActionRowBuilder().addComponents(
+                    new ButtonBuilder().setCustomId('dl_admin_back_to_main').setLabel('◀ Back to Admin Dashboard').setStyle(ButtonStyle.Secondary)
+                );
+
+                if (payload.startsWith('DEL_GROUP:::')) {
+                    const category = payload.replace('DEL_GROUP:::', '');
+                    if (!downloadCatalog.has(category)) {
+                        return await interaction.update({ content: `❌ Group **${category}** does not exist.`, components: [backRow] });
+                    }
+
                     downloadCatalog.delete(category);
-                    const hub = buildAdminHubMainView();
-                    return await interaction.update({ content: `🗑️ Deleted selected tools. Category **${category}** is now empty and was removed.`, embeds: hub.embeds, components: hub.components });
+                    return await interaction.update({
+                        content: `🗑️ Successfully deleted entire group **${category}** and all its products!`,
+                        components: [backRow]
+                    });
                 }
 
-                const view = buildCategoryHubView(category);
-                return await interaction.update({ content: `🗑️ Successfully deleted ${toolsToDelete.length} tool(s) from **${category}**!`, embeds: view.embeds, components: view.components });
+                if (payload.startsWith('DEL_TOOL:::')) {
+                    const [, category, productName] = payload.split(':::');
+                    if (!downloadCatalog.has(category)) {
+                        return await interaction.update({ content: `❌ Group **${category}** no longer exists.`, components: [backRow] });
+                    }
+
+                    const products = downloadCatalog.get(category);
+                    const index = products.findIndex(p => p.name === productName);
+
+                    if (index === -1) {
+                        return await interaction.update({ content: `❌ Tool **${productName}** not found in **${category}**.`, components: [backRow] });
+                    }
+
+                    products.splice(index, 1);
+                    if (products.length === 0) {
+                        downloadCatalog.delete(category);
+                    }
+
+                    return await interaction.update({
+                        content: `🗑️ Successfully removed **${productName}** from **${category}**!`,
+                        components: [backRow]
+                    });
+                }
+            }
+
+            // EDIT TOOL SELECTION
+            if (interaction.customId === 'dl_admin_edit_choose_category') {
+                if (!isAdmin) return await interaction.reply({ content: '❌ Admin required.', ephemeral: true });
+
+                const category = interaction.values[0];
+                const prods = downloadCatalog.get(category) || [];
+                const backRow = new ActionRowBuilder().addComponents(
+                    new ButtonBuilder().setCustomId('dl_admin_back_to_main').setLabel('◀ Back to Admin Dashboard').setStyle(ButtonStyle.Secondary)
+                );
+
+                if (prods.length === 0) {
+                    return await interaction.update({ content: `⚠️ No products found in ${category}.`, components: [backRow] });
+                }
+
+                const selectMenu = new StringSelectMenuBuilder()
+                    .setCustomId(`dl_admin_edit_choose_tool_${encodeURIComponent(category)}`)
+                    .setPlaceholder('Step 2: Choose exact tool to edit')
+                    .addOptions(
+                        prods.slice(0, 25).map(p => ({
+                            label: p.name.slice(0, 100),
+                            description: p.description.slice(0, 50),
+                            value: p.name,
+                            emoji: '✏️'
+                        }))
+                    );
+
+                const row = new ActionRowBuilder().addComponents(selectMenu);
+                return await interaction.update({
+                    content: `Category **${category}** selected. Choose tool to update:`,
+                    components: [row, backRow]
+                });
+            }
+
+            if (interaction.customId.startsWith('dl_admin_edit_choose_tool_')) {
+                if (!isAdmin) return await interaction.reply({ content: '❌ Admin required.', ephemeral: true });
+
+                const category = decodeURIComponent(interaction.customId.replace('dl_admin_edit_choose_tool_', ''));
+                const productName = interaction.values[0];
+                const products = downloadCatalog.get(category) || [];
+                const product = products.find(p => p.name === productName);
+
+                if (!product) {
+                    return await interaction.reply({ content: '❌ Product not found.', ephemeral: true });
+                }
+
+                const modal = new ModalBuilder()
+                    .setCustomId(`modal_dl_edit_save_${encodeURIComponent(category)}:::${encodeURIComponent(product.name)}`)
+                    .setTitle(`Edit ${product.name.slice(0, 25)}`);
+
+                modal.addComponents(
+                    new ActionRowBuilder().addComponents(
+                        new TextInputBuilder().setCustomId('edit_name').setLabel('Product Name').setValue(product.name).setStyle(TextInputStyle.Short).setRequired(true)
+                    ),
+                    new ActionRowBuilder().addComponents(
+                        new TextInputBuilder().setCustomId('edit_desc').setLabel('Short Description').setValue(product.description).setStyle(TextInputStyle.Short).setRequired(true)
+                    ),
+                    new ActionRowBuilder().addComponents(
+                        new TextInputBuilder().setCustomId('edit_url').setLabel('Download URL / Discord Message Link').setValue(product.url).setStyle(TextInputStyle.Short).setRequired(true)
+                    )
+                );
+
+                return await interaction.showModal(modal);
             }
 
             // Customer Download System (With Reset Button attached)
@@ -1455,15 +1505,9 @@ client.on('interactionCreate', async (interaction) => {
             if (interaction.customId === 'ticket_general') {
                 const modal = new ModalBuilder().setCustomId('modal_ticket_general').setTitle('🛠️ Technical Assistance');
                 modal.addComponents(
-                    new ActionRowBuilder().addComponents(
-                        new TextInputBuilder().setCustomId('general_tool').setLabel('Which software/game is having issues?').setStyle(TextInputStyle.Short).setRequired(true)
-                    ),
-                    new ActionRowBuilder().addComponents(
-                        new TextInputBuilder().setCustomId('general_sys').setLabel('Windows Build & Antivirus Status').setStyle(TextInputStyle.Short).setRequired(true)
-                    ),
-                    new ActionRowBuilder().addComponents(
-                        new TextInputBuilder().setCustomId('general_reason').setLabel('Explain the issue or error code').setStyle(TextInputStyle.Paragraph).setRequired(true)
-                    )
+                    new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('general_tool').setLabel('Which software/game is having issues?').setStyle(TextInputStyle.Short).setRequired(true)),
+                    new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('general_sys').setLabel('Windows Build & Antivirus Status').setStyle(TextInputStyle.Short).setRequired(true)),
+                    new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('general_reason').setLabel('Explain the issue or error code').setStyle(TextInputStyle.Paragraph).setRequired(true))
                 );
                 return await interaction.showModal(modal);
             }
@@ -1471,15 +1515,9 @@ client.on('interactionCreate', async (interaction) => {
             if (interaction.customId === 'ticket_purchase') {
                 const modal = new ModalBuilder().setCustomId('modal_ticket_purchase').setTitle('🛒 Purchase & Invoicing');
                 modal.addComponents(
-                    new ActionRowBuilder().addComponents(
-                        new TextInputBuilder().setCustomId('purchase_item').setLabel('Product & Duration').setStyle(TextInputStyle.Short).setRequired(true)
-                    ),
-                    new ActionRowBuilder().addComponents(
-                        new TextInputBuilder().setCustomId('purchase_method').setLabel('Payment Method').setStyle(TextInputStyle.Short).setRequired(true)
-                    ),
-                    new ActionRowBuilder().addComponents(
-                        new TextInputBuilder().setCustomId('purchase_orderid').setLabel('Order/TX ID (If already paid)').setStyle(TextInputStyle.Short).setRequired(false)
-                    )
+                    new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('purchase_item').setLabel('Product & Duration').setStyle(TextInputStyle.Short).setRequired(true)),
+                    new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('purchase_method').setLabel('Payment Method').setStyle(TextInputStyle.Short).setRequired(true)),
+                    new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('purchase_orderid').setLabel('Order/TX ID (If already paid)').setStyle(TextInputStyle.Short).setRequired(false))
                 );
                 return await interaction.showModal(modal);
             }
@@ -1487,15 +1525,9 @@ client.on('interactionCreate', async (interaction) => {
             if (interaction.customId === 'ticket_resell') {
                 const modal = new ModalBuilder().setCustomId('modal_ticket_resell').setTitle('🤝 Reseller Application');
                 modal.addComponents(
-                    new ActionRowBuilder().addComponents(
-                        new TextInputBuilder().setCustomId('resell_products').setLabel('Which tools are you looking to stock?').setStyle(TextInputStyle.Paragraph).setRequired(true)
-                    ),
-                    new ActionRowBuilder().addComponents(
-                        new TextInputBuilder().setCustomId('resell_platform').setLabel('Storefront or Server Link').setStyle(TextInputStyle.Short).setRequired(true)
-                    ),
-                    new ActionRowBuilder().addComponents(
-                        new TextInputBuilder().setCustomId('resell_volume').setLabel('Estimated Weekly Sales Volume').setStyle(TextInputStyle.Short).setRequired(false)
-                    )
+                    new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('resell_products').setLabel('Which tools are you looking to stock?').setStyle(TextInputStyle.Paragraph).setRequired(true)),
+                    new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('resell_platform').setLabel('Storefront or Server Link').setStyle(TextInputStyle.Short).setRequired(true)),
+                    new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('resell_volume').setLabel('Estimated Weekly Sales Volume').setStyle(TextInputStyle.Short).setRequired(false))
                 );
                 return await interaction.showModal(modal);
             }
@@ -1503,15 +1535,9 @@ client.on('interactionCreate', async (interaction) => {
             if (interaction.customId === 'ticket_hwid') {
                 const modal = new ModalBuilder().setCustomId('modal_ticket_hwid').setTitle('🔄 HWID Reset Request');
                 modal.addComponents(
-                    new ActionRowBuilder().addComponents(
-                        new TextInputBuilder().setCustomId('hwid_product').setLabel('Tool Name').setStyle(TextInputStyle.Short).setRequired(true)
-                    ),
-                    new ActionRowBuilder().addComponents(
-                        new TextInputBuilder().setCustomId('hwid_key').setLabel('Active License Key').setStyle(TextInputStyle.Short).setRequired(true)
-                    ),
-                    new ActionRowBuilder().addComponents(
-                        new TextInputBuilder().setCustomId('hwid_reason').setLabel('Reason for Hardware Change').setStyle(TextInputStyle.Paragraph).setRequired(true)
-                    )
+                    new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('hwid_product').setLabel('Tool Name').setStyle(TextInputStyle.Short).setRequired(true)),
+                    new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('hwid_key').setLabel('Active License Key').setStyle(TextInputStyle.Short).setRequired(true)),
+                    new ActionRowBuilder().addComponents(new TextInputBuilder().setCustomId('hwid_reason').setLabel('Reason for Hardware Change').setStyle(TextInputStyle.Paragraph).setRequired(true))
                 );
                 return await interaction.showModal(modal);
             }
@@ -1669,68 +1695,94 @@ client.on('interactionCreate', async (interaction) => {
             }
         }
 
-        // 6. MODAL SUBMISSIONS
+        // 6. MODAL SUBMISSIONS (DOWNLOADS & TICKETS)
         if (interaction.isModalSubmit()) {
+            const guild = interaction.guild;
             const user = interaction.user;
 
-            // SAVE EDITED PRODUCT FROM HUB
-            if (interaction.customId === 'modal_hub_edit_save') {
+            // SAVE EDITED PRODUCT
+            if (interaction.customId.startsWith('modal_dl_edit_save_')) {
                 if (!isAdmin) return await interaction.reply({ content: '❌ Admin required.', ephemeral: true });
 
-                const data = pendingAdminData.get(user.id);
-                pendingAdminData.delete(user.id);
+                const raw = interaction.customId.replace('modal_dl_edit_save_', '');
+                const [encCat, encOldName] = raw.split(':::');
+                const category = decodeURIComponent(encCat);
+                const oldName = decodeURIComponent(encOldName);
 
-                if (!data) return await interaction.reply({ content: '❌ Session expired.', ephemeral: true });
-
-                const { category, oldName } = data;
                 const newName = interaction.fields.getTextInputValue('edit_name').trim();
                 const newDesc = interaction.fields.getTextInputValue('edit_desc').trim();
                 const newUrl = interaction.fields.getTextInputValue('edit_url').trim();
 
                 const products = downloadCatalog.get(category);
-                const product = products.find(p => p.name === oldName);
-
-                if (product) {
-                    product.name = newName;
-                    product.description = newDesc;
-                    product.url = newUrl;
+                if (!products) {
+                    return await interaction.reply({ content: `❌ Category **${category}** no longer exists.`, ephemeral: true });
                 }
 
-                const view = buildCategoryHubView(category);
-                return await interaction.update({ content: `✅ Updated tool **${newName}** in **${category}**!`, embeds: view.embeds, components: view.components });
+                const product = products.find(p => p.name === oldName);
+                if (!product) {
+                    return await interaction.reply({ content: `❌ Product **${oldName}** not found.`, ephemeral: true });
+                }
+
+                product.name = newName;
+                product.description = newDesc;
+                product.url = newUrl;
+
+                const backRow = new ActionRowBuilder().addComponents(
+                    new ButtonBuilder().setCustomId('dl_admin_back_to_main').setLabel('◀ Back to Admin Dashboard').setStyle(ButtonStyle.Secondary)
+                );
+
+                return await interaction.reply({
+                    content: `✅ Successfully updated **${newName}** under **${category}**!`,
+                    components: [backRow],
+                    ephemeral: true
+                });
             }
 
-            // ADD SINGLE TOOL FROM HUB
-            if (interaction.customId.startsWith('modal_hub_add_single:::')) {
-                if (!isAdmin) return await interaction.reply({ content: '❌ Admin required.', ephemeral: true });
-                const category = decodeURIComponent(interaction.customId.replace('modal_hub_add_single:::', ''));
-
-                const name = interaction.fields.getTextInputValue('tool_name').trim();
-                const description = interaction.fields.getTextInputValue('tool_desc').trim();
-                const url = interaction.fields.getTextInputValue('tool_url').trim();
-
-                if (!downloadCatalog.has(category)) downloadCatalog.set(category, []);
-                downloadCatalog.get(category).push({ name, description, url });
-
-                const view = buildCategoryHubView(category);
-                return await interaction.update({ content: `✅ Added **${name}** to **${category}**!`, embeds: view.embeds, components: view.components });
-            }
-
-            // CREATE NEW CATEGORY WITH FIRST TOOL
-            if (interaction.customId === 'modal_hub_new_category') {
+            // MULTI-CATEGORY PRODUCT ADDITION (Safe Map Storage)
+            if (interaction.customId === 'modal_dl_add_product_MULTI') {
                 if (!isAdmin) return await interaction.reply({ content: '❌ Admin required.', ephemeral: true });
 
-                const newCat = interaction.fields.getTextInputValue('new_cat_name').toUpperCase().trim();
-                const name = interaction.fields.getTextInputValue('tool_name').trim();
-                const description = interaction.fields.getTextInputValue('tool_desc').trim();
-                const url = interaction.fields.getTextInputValue('tool_url').trim();
+                let targetCategories = pendingMultiAdd.get(interaction.user.id) || [];
+                pendingMultiAdd.delete(interaction.user.id);
 
-                if (!newCat) return await interaction.reply({ content: '❌ Category name cannot be empty.', ephemeral: true });
+                if (targetCategories.includes('__NEW_CATEGORY__')) {
+                    const newCat = interaction.fields.getTextInputValue('dl_new_cat_name').toUpperCase().trim();
+                    if (!newCat) return await interaction.reply({ content: '❌ Category name cannot be empty.', ephemeral: true });
+                    targetCategories = [newCat];
+                }
 
-                downloadCatalog.set(newCat, [{ name, description, url }]);
+                if (targetCategories.length === 0) {
+                    return await interaction.reply({ content: '❌ Session expired. Please try selecting categories again.', ephemeral: true });
+                }
 
-                const view = buildCategoryHubView(newCat);
-                return await interaction.update({ content: `🎉 Successfully created new category **${newCat}** with tool **${name}**!`, embeds: view.embeds, components: view.components });
+                const name = interaction.fields.getTextInputValue('dl_name').trim();
+                const description = interaction.fields.getTextInputValue('dl_desc').trim();
+                const url = interaction.fields.getTextInputValue('dl_url').trim();
+
+                for (const cat of targetCategories) {
+                    if (!downloadCatalog.has(cat)) {
+                        downloadCatalog.set(cat, []);
+                    }
+
+                    const categoryProducts = downloadCatalog.get(cat);
+                    const existingIndex = categoryProducts.findIndex(p => p.name.toLowerCase() === name.toLowerCase());
+
+                    if (existingIndex !== -1) {
+                        categoryProducts[existingIndex] = { name, description, url };
+                    } else {
+                        categoryProducts.push({ name, description, url });
+                    }
+                }
+
+                const backRow = new ActionRowBuilder().addComponents(
+                    new ButtonBuilder().setCustomId('dl_admin_back_to_main').setLabel('◀ Back to Admin Dashboard').setStyle(ButtonStyle.Secondary)
+                );
+
+                return await interaction.reply({ 
+                    content: `✅ Successfully linked **${name}** to **${targetCategories.length}** category/categories:\n\`${targetCategories.join(', ')}\``, 
+                    components: [backRow],
+                    ephemeral: true 
+                });
             }
 
             let ticketType = 'Support';
@@ -1784,28 +1836,28 @@ client.on('interactionCreate', async (interaction) => {
 
                 let targetCategory = null;
                 if (CONFIG.TICKET_CATEGORY_ID) {
-                    targetCategory = interaction.guild.channels.cache.get(CONFIG.TICKET_CATEGORY_ID) || await interaction.guild.channels.fetch(CONFIG.TICKET_CATEGORY_ID).catch(() => null);
+                    targetCategory = guild.channels.cache.get(CONFIG.TICKET_CATEGORY_ID) || await guild.channels.fetch(CONFIG.TICKET_CATEGORY_ID).catch(() => null);
                 }
 
                 const permissionOverwrites = [
-                    { id: interaction.guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
+                    { id: guild.id, deny: [PermissionsBitField.Flags.ViewChannel] },
                     { id: user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ReadMessageHistory, PermissionsBitField.Flags.AttachFiles] },
                     { id: client.user.id, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages, PermissionsBitField.Flags.ManageChannels] }
                 ];
 
-                if (interaction.guild.roles.cache.has(CONFIG.STAFF_ROLE_ID)) {
+                if (guild.roles.cache.has(CONFIG.STAFF_ROLE_ID)) {
                     permissionOverwrites.push({ id: CONFIG.STAFF_ROLE_ID, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] });
                 }
-                if (interaction.guild.roles.cache.has(CONFIG.TRIAL_STAFF_ROLE_ID)) {
+                if (guild.roles.cache.has(CONFIG.TRIAL_STAFF_ROLE_ID)) {
                     permissionOverwrites.push({ id: CONFIG.TRIAL_STAFF_ROLE_ID, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] });
                 }
                 for (const adminId of CONFIG.ADMIN_ROLE_IDS) {
-                    if (interaction.guild.roles.cache.has(adminId)) {
+                    if (guild.roles.cache.has(adminId)) {
                         permissionOverwrites.push({ id: adminId, allow: [PermissionsBitField.Flags.ViewChannel, PermissionsBitField.Flags.SendMessages] });
                     }
                 }
 
-                const ticketChannel = await interaction.guild.channels.create({
+                const ticketChannel = await guild.channels.create({
                     name: channelName,
                     type: ChannelType.GuildText,
                     parent: targetCategory && targetCategory.type === ChannelType.GuildCategory ? targetCategory.id : null,
