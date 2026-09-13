@@ -128,22 +128,21 @@ const downloadCatalog = new Map([
     ['ARC', [
         { name: 'Ancient Multi Loader', description: 'Universal Multi-Game Loader', url: 'https://telegra.ph/INJECTION-07-21-4' },
         { name: 'AC-ARC Raiders', description: 'Clean external utility for ARC Raiders', url: 'https://discord.com/channels/1040987039270707231/1546976979494899842/1548719980340846602' },
-        { name: 'Yami: ARC Raiders External + Spoofer', description: 'External overlay + built-in spoofer', url: 'https://gmh-shop.com' },
-        { name: 'BLITZ: ARC Raiders External', description: 'External visual assistance tool', url: 'https://gmh-shop.com' },
-        { name: 'Skyra: ARC Raiders Cheat', description: 'High performance ARC Raiders loader', url: 'https://gmh-shop.com' }
+        { name: 'BLITZ: ARC Raiders External', description: 'External visual assistance tool', url: 'https://gofile.io/d/Yp5lws' },
+        { name: 'Yami: ARC Raiders External + Spoofer', description: 'External overlay + built-in spoofer', url: 'https://gmh-shop.com' }
     ]],
     ['APEX', [
         { name: 'Ancient Multi Loader', description: 'Universal Multi-Game Loader', url: 'https://telegra.ph/INJECTION-07-21-4' },
+        { name: 'Arcane Multi Loader', description: 'Kernel-Level Multi-Game Loader', url: 'https://discord.com/channels/1040987039270707231/1546976979494899842/1548780593498685501' },
         { name: 'Venom Loader', description: 'Multi-Game Venom Suite', url: 'https://discord.com/channels/1040987039270707231/1546976979494899842/1548698975132188672' },
-        { name: 'Raiko: Apex Legends Internal', description: 'Precision internal feature set', url: 'https://gmh-shop.com' },
-        { name: 'Arcane: Apex Legends', description: 'Kernel-level Apex loader', url: 'https://gmh-shop.com' }
+        { name: 'Raiko: Apex Legends Internal', description: 'Precision internal feature set', url: 'https://gmh-shop.com' }
     ]],
     ['FN', [
         { name: 'Ancient Multi Loader', description: 'Universal Multi-Game Loader', url: 'https://telegra.ph/INJECTION-07-21-4' },
+        { name: 'Arcane Multi Loader', description: 'Kernel-Level Multi-Game Loader', url: 'https://discord.com/channels/1040987039270707231/1546976979494899842/1548780593498685501' },
         { name: 'Venom Loader', description: 'Multi-Game Venom Suite', url: 'https://discord.com/channels/1040987039270707231/1546976979494899842/1548698975132188672' },
-        { name: 'Fortnite: Full Public', description: 'Public stable Fortnite loader', url: 'https://gmh-shop.com' },
-        { name: 'Arcane: Fortnite Cheat', description: 'Advanced security Fortnite loader', url: 'https://gmh-shop.com' },
-        { name: 'EON Fortnite External', description: 'Smooth streaming-safe external', url: 'https://gmh-shop.com' }
+        { name: 'Fortnite: Full Public', description: 'Public stable Fortnite loader', url: 'https://ez-val.com/' },
+        { name: 'EON Fortnite External', description: 'Smooth streaming-safe external', url: 'https://gofile.io/d/Y1Nscj' }
     ]],
     ['DELTA FORCE', [
         { name: 'Ancient Multi Loader', description: 'Universal Multi-Game Loader', url: 'https://telegra.ph/INJECTION-07-21-4' },
@@ -171,9 +170,8 @@ const downloadCatalog = new Map([
         { name: 'Grey - Silver DMZ/MWII Internal', description: 'Legacy MW2 & DMZ internal suite', url: 'https://gofile.io/d/fVVwcY' },
         { name: 'CA-Call of Duty: BO7 | Warzone', description: 'Complete Call of Duty assistance tool', url: 'https://discord.com/channels/1040987039270707231/1546976979494899842/1548719980340846602' },
         { name: 'DW COD-7 / MW-4 External', description: 'DW external memory loader', url: 'https://discord.com/channels/1040987039270707231/1546976979494899842/1548720239058100276' },
-        { name: 'BO7: Royal External', description: 'Royal premium external overlay', url: 'https://gmh-shop.com' },
-        { name: 'MW4 & BO7 - Kairos External', description: 'Kairos external engine', url: 'https://gmh-shop.com' },
-        { name: '[MW4 BETA] Lyra External - Day ACESS', description: 'Lyra external loader suite', url: 'https://gmh-shop.com' }
+        { name: 'MW4 & BO7 - Kairos External', description: '[TEMP OFFLINE] Kairos external engine', url: 'https://gmh-shop.com' },
+        { name: '[MW4 BETA] Lyra External - Day ACESS', description: '[UPDATING] Lyra external loader suite', url: 'https://gmh-shop.com' }
     ]],
     ['CS2', [
         { name: 'CS2: Skin Changer', description: 'Instant weapon skin and knife switcher', url: 'https://gmh-shop.com' },
@@ -183,36 +181,34 @@ const downloadCatalog = new Map([
     ['R6S', [
         { name: 'Ancient Multi Loader', description: 'Universal Multi-Game Loader', url: 'https://telegra.ph/INJECTION-07-21-4' },
         { name: 'Crusader: Rainbow Six Siege', description: 'Crusader security-tested loader', url: 'https://uniqueloader.com/r6s/' },
-        { name: 'Sapphire: R6S Unlock All', description: 'All weapon skins, charms, and operators', url: 'https://gmh-shop.com' },
-        { name: 'Vega - R6 External', description: 'Stream-proof external Siege overlay', url: 'https://gmh-shop.com' }
+        { name: 'Vega - R6 External', description: 'Stream-proof external Siege overlay', url: 'https://mega.nz/folder/OAkhFCbJ#X0bbzcy5PFIiOJOWnuQyog' }
     ]],
     ['RUST', [
         { name: 'Ancient Multi Loader', description: 'Universal Multi-Game Loader', url: 'https://telegra.ph/INJECTION-07-21-4' },
-        { name: 'MEK - Rust External', description: 'Smooth recoil & visual external tool', url: 'https://gmh-shop.com' },
-        { name: 'Arcane: Rust', description: 'Long-term undetected Rust utility', url: 'https://gmh-shop.com' }
+        { name: 'Arcane Multi Loader', description: 'Kernel-Level Multi-Game Loader', url: 'https://discord.com/channels/1040987039270707231/1546976979494899842/1548780593498685501' }
     ]],
     ['ARENA BREAKOUT', [
+        { name: 'Ancient Multi Loader', description: 'Universal Multi-Game Loader', url: 'https://telegra.ph/INJECTION-07-21-4' },
         { name: 'CA - Arena Breakout Infinite', description: 'Full feature loader for Infinite', url: 'https://discord.com/channels/1040987039270707231/1546976979494899842/1548719980340846602' },
-        { name: 'Akuma - Arena Breakout', description: 'Internal memory suite for ABI', url: 'https://gmh-shop.com' },
-        { name: 'Ancient: ABI Radar', description: '2D Web / Overlay radar assistance', url: 'https://gmh-shop.com' }
+        { name: 'Akuma - Arena Breakout', description: 'Internal memory suite for ABI', url: 'https://gmh-shop.com' }
     ]],
     ['FIVE M', [
-        { name: 'Arcane: GTA V Enhanced', description: 'Enhanced utility for Grand Theft Auto V', url: 'https://gmh-shop.com' },
+        { name: 'Arcane Multi Loader', description: 'Kernel-Level Multi-Game Loader', url: 'https://discord.com/channels/1040987039270707231/1546976979494899842/1548780593498685501' },
         { name: 'Ham Exec + Vanity Menu Bundle', description: 'Complete Lua executor and menu bundle', url: 'https://gmh-shop.com' }
     ]],
     ['BATTLEFIELD 6', [
         { name: 'Ancient Multi Loader', description: 'Universal Multi-Game Loader', url: 'https://telegra.ph/INJECTION-07-21-4' },
-        { name: 'Arcane: Battlefield 6', description: 'External tactical overlay', url: 'https://gmh-shop.com' }
+        { name: 'Arcane Multi Loader', description: 'Kernel-Level Multi-Game Loader', url: 'https://discord.com/channels/1040987039270707231/1546976979494899842/1548780593498685501' }
     ]],
     ['DEAD BY DAYLIGHT', [
         { name: 'Ancient Multi Loader', description: 'Universal Multi-Game Loader', url: 'https://telegra.ph/INJECTION-07-21-4' },
-        { name: 'Arcane: Dead By Daylight', description: 'Skill check and entity highlighter', url: 'https://gmh-shop.com' }
+        { name: 'Arcane Multi Loader', description: 'Kernel-Level Multi-Game Loader', url: 'https://discord.com/channels/1040987039270707231/1546976979494899842/1548780593498685501' }
     ]],
     ['ESCAPE FROM TARKOV', [
         { name: 'Ancient Multi Loader', description: 'Universal Multi-Game Loader', url: 'https://telegra.ph/INJECTION-07-21-4' }
     ]],
     ['DAYZ', [
-        { name: 'Arcane: DayZ', description: 'Inventory radar, player ESP & item tracker', url: 'https://gmh-shop.com' }
+        { name: 'Arcane Multi Loader', description: 'Kernel-Level Multi-Game Loader', url: 'https://discord.com/channels/1040987039270707231/1546976979494899842/1548780593498685501' }
     ]],
     ['DEADLOCK', [
         { name: 'Deadlock: Predator', description: 'Tactical target locator and visuals', url: 'https://gmh-shop.com' }
