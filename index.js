@@ -126,53 +126,31 @@ const afkUsers = new Map();
 const afkCooldowns = new Map();
 
 // =============================================================
-// UNIFIED DYNAMIC CATALOG ENGINE (HANDLES MULTI-GAME DEVS)
+// PRE-POPULATED STORE CATALOG
 // =============================================================
-const MULTI_GAME_PROVIDERS = {
-    Ancient: [
-        { game: 'ARC', name: 'Ancient: ARC Raiders', desc: 'ARC Raiders Internal Utility' },
-        { game: 'APEX', name: 'Ancient: Apex Legends', desc: 'Full featured loader for Apex' },
-        { game: 'FN', name: 'Ancient: Fortnite', desc: 'Comprehensive Fortnite tool' },
-        { game: 'DELTA FORCE', name: 'Ancient: Delta Force', desc: 'Delta Force Warfare internal utility' },
-        { game: 'COD', name: 'Ancient: COD External', desc: 'Warzone / BO6 external tool' },
-        { game: 'R6S', name: 'Ancient: Rainbow Six Siege', desc: 'Full Siege internal assistance' },
-        { game: 'RUST', name: 'Ancient: Rust', desc: 'Comprehensive Rust internal engine' },
-        { game: 'ARENA BREAKOUT', name: 'Ancient: ABI Radar', desc: '2D Web / Overlay radar assistance' },
-        { game: 'BATTLEFIELD 6', name: 'Ancient: Battlefield 6', desc: 'Battlefield engine memory utility' },
-        { game: 'DEAD BY DAYLIGHT', name: 'Ancient: Dead By Daylight', desc: 'Full survivor and killer ESP' },
-        { game: 'ESCAPE FROM TARKOV', name: 'Ancient: Escape From Tarkov', desc: 'Loot filter, PMC visual, and memory suite' },
-        { game: 'PUBG', name: 'Ancient: PUBG', desc: 'Recoil compensation & player ESP' }
-    ],
-    Venom: [
-        { game: 'APEX', name: 'Venom: Apex Legends', desc: 'Optimized external suite' },
-        { game: 'FN', name: 'Venom: Fortnite', desc: 'External performance utility' }
-    ],
-    Arcane: [
-        { game: 'APEX', name: 'Arcane: Apex Legends', desc: 'Kernel-level Apex loader' },
-        { game: 'FN', name: 'Arcane: Fortnite', desc: 'Advanced security Fortnite loader' },
-        { game: 'RUST', name: 'Arcane: Rust', desc: 'Long-term undetected Rust utility' },
-        { game: 'FIVE M', name: 'Arcane: GTA V Enhanced', desc: 'Enhanced utility for Grand Theft Auto V' },
-        { game: 'BATTLEFIELD 6', name: 'Arcane: Battlefield 6', desc: 'External tactical overlay' },
-        { game: 'DEAD BY DAYLIGHT', name: 'Arcane: Dead By Daylight', desc: 'Skill check and entity highlighter' },
-        { game: 'DAYZ', name: 'Arcane: DayZ', desc: 'Inventory radar, player ESP & item tracker' }
-    ]
-};
-
-const STANDALONE_PRODUCTS = new Map([
+const downloadCatalog = new Map([
     ['ARC', [
+        { name: 'Ancient: ARC Raiders', description: 'ARC Raiders Internal Utility', url: 'https://gmh-shop.com' },
         { name: 'Yami: ARC Raiders External + Spoofer', description: 'External overlay + built-in spoofer', url: 'https://gmh-shop.com' },
         { name: 'BLITZ: ARC Raiders External', description: 'External visual assistance tool', url: 'https://gmh-shop.com' },
         { name: 'Skyra: ARC Raiders Cheat', description: 'High performance ARC Raiders loader', url: 'https://gmh-shop.com' },
         { name: 'AC-ARC Raiders', description: 'Clean external utility for ARC Raiders', url: 'https://gmh-shop.com' }
     ]],
     ['APEX', [
-        { name: 'Raiko: Apex Legends Internal', description: 'Precision internal feature set', url: 'https://gmh-shop.com' }
+        { name: 'Raiko: Apex Legends Internal', description: 'Precision internal feature set', url: 'https://gmh-shop.com' },
+        { name: 'Ancient: Apex Legends', description: 'Full featured loader for Apex', url: 'https://gmh-shop.com' },
+        { name: 'Venom: Apex Legends', description: 'Optimized external suite', url: 'https://gmh-shop.com' },
+        { name: 'Arcane: Apex Legends', description: 'Kernel-level Apex loader', url: 'https://gmh-shop.com' }
     ]],
     ['FN', [
         { name: 'Fortnite: Full Public', description: 'Public stable Fortnite loader', url: 'https://gmh-shop.com' },
+        { name: 'Venom: Fortnite', description: 'External performance utility', url: 'https://gmh-shop.com' },
+        { name: 'Ancient: Fortnite Cheat', description: 'Comprehensive Fortnite tool', url: 'https://gmh-shop.com' },
+        { name: 'Arcane: Fortnite Cheat', description: 'Advanced security Fortnite loader', url: 'https://gmh-shop.com' },
         { name: 'EON Fortnite External', description: 'Smooth streaming-safe external', url: 'https://gmh-shop.com' }
     ]],
     ['DELTA FORCE', [
+        { name: 'Ancient: Delta Force', description: 'Delta Force Warfare internal utility', url: 'https://gmh-shop.com' },
         { name: 'Delta Force: Grey Internal', description: 'Full memory internal tool', url: 'https://gmh-shop.com' }
     ]],
     ['PC PROTECTOR', [
@@ -191,6 +169,7 @@ const STANDALONE_PRODUCTS = new Map([
         { name: 'Valorant: Public Full', description: 'Complete Valorant feature set', url: 'https://gmh-shop.com' }
     ]],
     ['COD', [
+        { name: 'Ancient: COD External', description: 'Warzone / BO6 external tool', url: 'https://gmh-shop.com' },
         { name: 'Grey - Silver DMZ/MWII Internal', description: 'Legacy MW2 & DMZ internal suite', url: 'https://gmh-shop.com' },
         { name: '[BO7/WZ] Thunex External', description: 'BO6 / Warzone external feature set', url: 'https://gmh-shop.com' },
         { name: 'BO7: Royal External', description: 'Royal premium external overlay', url: 'https://gmh-shop.com' },
@@ -207,17 +186,36 @@ const STANDALONE_PRODUCTS = new Map([
     ['R6S', [
         { name: 'Sapphire: R6S Unlock All', description: 'All weapon skins, charms, and operators', url: 'https://gmh-shop.com' },
         { name: 'Vega - R6 External', description: 'Stream-proof external Siege overlay', url: 'https://gmh-shop.com' },
+        { name: 'Ancient: Rainbow Six Siege', description: 'Full Siege internal assistance', url: 'https://gmh-shop.com' },
         { name: 'Crusader: Rainbow Six Siege', description: 'Crusader security-tested loader', url: 'https://gmh-shop.com' }
     ]],
     ['RUST', [
-        { name: 'MEK - Rust External', description: 'Smooth recoil & visual external tool', url: 'https://gmh-shop.com' }
+        { name: 'MEK - Rust External', description: 'Smooth recoil & visual external tool', url: 'https://gmh-shop.com' },
+        { name: 'Ancient: Rust', description: 'Comprehensive Rust internal engine', url: 'https://gmh-shop.com' },
+        { name: 'Arcane: Rust', description: 'Long-term undetected Rust utility', url: 'https://gmh-shop.com' }
     ]],
     ['ARENA BREAKOUT', [
         { name: 'Akuma - Arena Breakout', description: 'Internal memory suite for ABI', url: 'https://gmh-shop.com' },
+        { name: 'Ancient: ABI Radar', description: '2D Web / Overlay radar assistance', url: 'https://gmh-shop.com' },
         { name: 'CA - Arena Breakout Infinite', description: 'Full feature loader for Infinite', url: 'https://gmh-shop.com' }
     ]],
     ['FIVE M', [
+        { name: 'Arcane: GTA V Enhanced', description: 'Enhanced utility for Grand Theft Auto V', url: 'https://gmh-shop.com' },
         { name: 'Ham Exec + Vanity Menu Bundle', description: 'Complete Lua executor and menu bundle', url: 'https://gmh-shop.com' }
+    ]],
+    ['BATTLEFIELD 6', [
+        { name: 'Ancient: Battlefield 6', description: 'Battlefield engine memory utility', url: 'https://gmh-shop.com' },
+        { name: 'Arcane: Battlefield 6', description: 'External tactical overlay', url: 'https://gmh-shop.com' }
+    ]],
+    ['DEAD BY DAYLIGHT', [
+        { name: 'Ancient: Dead By Daylight', description: 'Full survivor and killer ESP', url: 'https://gmh-shop.com' },
+        { name: 'Arcane: Dead By Daylight', description: 'Skill check and entity highlighter', url: 'https://gmh-shop.com' }
+    ]],
+    ['ESCAPE FROM TARKOV', [
+        { name: 'Ancient: Escape From Tarkov', description: 'Loot filter, PMC visual, and memory suite', url: 'https://gmh-shop.com' }
+    ]],
+    ['DAYZ', [
+        { name: 'Arcane: DayZ', description: 'Inventory radar, player ESP & item tracker', url: 'https://gmh-shop.com' }
     ]],
     ['DEADLOCK', [
         { name: 'Deadlock: Predator', description: 'Tactical target locator and visuals', url: 'https://gmh-shop.com' }
@@ -234,35 +232,13 @@ const STANDALONE_PRODUCTS = new Map([
     ['SCUM', [
         { name: 'CA - SCUM', description: 'Survival item tracker and precision tools', url: 'https://gmh-shop.com' }
     ]],
+    ['PUBG', [
+        { name: 'Ancient: PUBG', description: 'Recoil compensation & player ESP', url: 'https://gmh-shop.com' }
+    ]],
     ['SUPPORT', [
         { name: 'GMH Support Tool', description: 'Diagnostic & prerequisite runtime installer', url: 'https://gmh-shop.com' }
     ]]
 ]);
-
-// Initialize the master catalog
-const downloadCatalog = new Map();
-
-function initMasterCatalog() {
-    // 1. Load standalone items
-    for (const [category, items] of STANDALONE_PRODUCTS.entries()) {
-        downloadCatalog.set(category, [...items]);
-    }
-
-    // 2. Auto-merge multi-game provider suites
-    for (const items of Object.values(MULTI_GAME_PROVIDERS)) {
-        for (const item of items) {
-            if (!downloadCatalog.has(item.game)) {
-                downloadCatalog.set(item.game, []);
-            }
-            downloadCatalog.get(item.game).unshift({
-                name: item.name,
-                description: item.desc,
-                url: 'https://gmh-shop.com'
-            });
-        }
-    }
-}
-initMasterCatalog();
 
 function parseDuration(str) {
     if (!str) return null;
@@ -1271,16 +1247,17 @@ client.on('interactionCreate', async (interaction) => {
                 return await interaction.update({ embeds: [buildAdminCatalogEmbed()] });
             }
 
+            // MULTI-CATEGORY ADD TRIGGER
             if (interaction.customId === 'dl_admin_open_add') {
                 if (!isAdmin) {
                     return await interaction.reply({ content: '❌ Access Denied: Admin permission required.', ephemeral: true });
                 }
 
                 const existingCategories = Array.from(downloadCatalog.keys());
-                const options = [
+                const selectOptions = [
                     {
                         label: '➕ Create Brand New Category',
-                        description: 'Add a new game or tool type',
+                        description: 'Add an entirely new category to the catalog',
                         value: '__NEW_CATEGORY__',
                         emoji: '✨'
                     },
@@ -1294,13 +1271,15 @@ client.on('interactionCreate', async (interaction) => {
 
                 const selectMenu = new StringSelectMenuBuilder()
                     .setCustomId('dl_admin_choose_add_category')
-                    .setPlaceholder('Choose a category or create a new one')
-                    .addOptions(options);
+                    .setPlaceholder('Select one or more categories for this tool')
+                    .setMinValues(1)
+                    .setMaxValues(Math.min(selectOptions.length, 10))
+                    .addOptions(selectOptions);
 
                 const row = new ActionRowBuilder().addComponents(selectMenu);
 
                 return await interaction.reply({
-                    content: 'Choose which category to add this tool into:',
+                    content: 'Select the categories you want to link this tool to (select multiple to assign at once):',
                     components: [row],
                     ephemeral: true
                 });
@@ -1362,6 +1341,67 @@ client.on('interactionCreate', async (interaction) => {
         }
 
         if (interaction.isStringSelectMenu()) {
+            // MULTI-CATEGORY ADD MODAL LAUNCHER
+            if (interaction.customId === 'dl_admin_choose_add_category') {
+                if (!isAdmin) return await interaction.reply({ content: '❌ Admin required.', ephemeral: true });
+
+                const selected = interaction.values;
+                const isNew = selected.includes('__NEW_CATEGORY__');
+
+                if (isNew && selected.length > 1) {
+                    return await interaction.reply({
+                        content: '⚠️ When creating a brand new category, please select only the `Create Brand New Category` option.',
+                        ephemeral: true
+                    });
+                }
+
+                const categoriesKey = encodeURIComponent(selected.join('---'));
+                const modal = new ModalBuilder()
+                    .setCustomId(`modal_dl_add_product_MULTI:::${categoriesKey}`)
+                    .setTitle(isNew ? 'Create New Category & Tool' : `Add Tool to ${selected.length} Categories`);
+
+                if (isNew) {
+                    modal.addComponents(
+                        new ActionRowBuilder().addComponents(
+                            new TextInputBuilder()
+                                .setCustomId('dl_new_cat_name')
+                                .setLabel('New Category Name (e.g. THE FINALS)')
+                                .setStyle(TextInputStyle.Short)
+                                .setRequired(true)
+                        )
+                    );
+                }
+
+                modal.addComponents(
+                    new ActionRowBuilder().addComponents(
+                        new TextInputBuilder()
+                            .setCustomId('dl_name')
+                            .setLabel('Tool Name (e.g. Ancient Loader)')
+                            .setPlaceholder('e.g. Ancient Multi-Game Suite')
+                            .setStyle(TextInputStyle.Short)
+                            .setRequired(true)
+                    ),
+                    new ActionRowBuilder().addComponents(
+                        new TextInputBuilder()
+                            .setCustomId('dl_desc')
+                            .setLabel('Short Description')
+                            .setPlaceholder('Universal loader for selected games')
+                            .setStyle(TextInputStyle.Short)
+                            .setRequired(true)
+                    ),
+                    new ActionRowBuilder().addComponents(
+                        new TextInputBuilder()
+                            .setCustomId('dl_url')
+                            .setLabel('Download URL / Message Link')
+                            .setPlaceholder('https://...')
+                            .setStyle(TextInputStyle.Short)
+                            .setRequired(true)
+                    )
+                );
+
+                return await interaction.showModal(modal);
+            }
+
             if (interaction.customId === 'dl_admin_remove_choose_category') {
                 if (!isAdmin) return await interaction.reply({ content: '❌ Admin required.', ephemeral: true });
 
@@ -1512,39 +1552,6 @@ client.on('interactionCreate', async (interaction) => {
                             .setValue(product.url)
                             .setStyle(TextInputStyle.Short)
                             .setRequired(true)
-                    )
-                );
-
-                return await interaction.showModal(modal);
-            }
-
-            if (interaction.customId === 'dl_admin_choose_add_category') {
-                if (!isAdmin) return await interaction.reply({ content: '❌ Admin required.', ephemeral: true });
-
-                const selected = interaction.values[0];
-                const isNew = selected === '__NEW_CATEGORY__';
-
-                const modal = new ModalBuilder()
-                    .setCustomId(`modal_dl_add_product_${isNew ? 'NEW' : encodeURIComponent(selected)}`)
-                    .setTitle(isNew ? 'Add Tool (New Category)' : `Add Tool to ${selected.slice(0, 20)}`);
-
-                if (isNew) {
-                    modal.addComponents(
-                        new ActionRowBuilder().addComponents(
-                            new TextInputBuilder().setCustomId('dl_cat').setLabel('New Category Name (e.g. RUST, CS2)').setStyle(TextInputStyle.Short).setRequired(true)
-                        )
-                    );
-                }
-
-                modal.addComponents(
-                    new ActionRowBuilder().addComponents(
-                        new TextInputBuilder().setCustomId('dl_name').setLabel('Product Name').setStyle(TextInputStyle.Short).setRequired(true)
-                    ),
-                    new ActionRowBuilder().addComponents(
-                        new TextInputBuilder().setCustomId('dl_desc').setLabel('Short Description').setStyle(TextInputStyle.Short).setRequired(true)
-                    ),
-                    new ActionRowBuilder().addComponents(
-                        new TextInputBuilder().setCustomId('dl_url').setLabel('Download URL / Discord Message Link').setStyle(TextInputStyle.Short).setRequired(true)
                     )
                 );
 
@@ -1881,32 +1888,44 @@ client.on('interactionCreate', async (interaction) => {
                 });
             }
 
-            // ADD PRODUCT MODAL
-            if (interaction.customId.startsWith('modal_dl_add_product_')) {
+            // MULTI-CATEGORY PRODUCT ADDITION HANDLER
+            if (interaction.customId.startsWith('modal_dl_add_product_MULTI:::')) {
                 if (!isAdmin) {
                     return await interaction.reply({ content: '❌ Access Denied: Admin permission required.', ephemeral: true });
                 }
 
-                const rawParam = interaction.customId.replace('modal_dl_add_product_', '');
-                let category;
+                const rawCategories = decodeURIComponent(interaction.customId.replace('modal_dl_add_product_MULTI:::', ''));
+                let targetCategories = rawCategories.split('---');
 
-                if (rawParam === 'NEW') {
-                    category = interaction.fields.getTextInputValue('dl_cat').toUpperCase().trim();
-                } else {
-                    category = decodeURIComponent(rawParam);
+                if (targetCategories.includes('__NEW_CATEGORY__')) {
+                    const newCat = interaction.fields.getTextInputValue('dl_new_cat_name').toUpperCase().trim();
+                    if (!newCat) {
+                        return await interaction.reply({ content: '❌ Category name cannot be empty.', ephemeral: true });
+                    }
+                    targetCategories = [newCat];
                 }
 
                 const name = interaction.fields.getTextInputValue('dl_name').trim();
                 const description = interaction.fields.getTextInputValue('dl_desc').trim();
                 const url = interaction.fields.getTextInputValue('dl_url').trim();
 
-                if (!downloadCatalog.has(category)) {
-                    downloadCatalog.set(category, []);
+                for (const cat of targetCategories) {
+                    if (!downloadCatalog.has(cat)) {
+                        downloadCatalog.set(cat, []);
+                    }
+
+                    const categoryProducts = downloadCatalog.get(cat);
+                    const existingIndex = categoryProducts.findIndex(p => p.name.toLowerCase() === name.toLowerCase());
+
+                    if (existingIndex !== -1) {
+                        categoryProducts[existingIndex] = { name, description, url };
+                    } else {
+                        categoryProducts.push({ name, description, url });
+                    }
                 }
 
-                downloadCatalog.get(category).push({ name, description, url });
                 return await interaction.reply({ 
-                    content: `✅ Successfully added **${name}** into **${category}**!`, 
+                    content: `✅ Successfully linked **${name}** to **${targetCategories.length}** category/categories:\n\`${targetCategories.join(', ')}\``, 
                     ephemeral: true 
                 });
             }
