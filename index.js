@@ -247,35 +247,41 @@ function parseDuration(str) {
     return val * mults[unit];
 }
 
-function buildAdminCatalogEmbed() {
-    let inventoryDesc = '';
+function buildAdminHubMainView() {
     let totalItems = 0;
+    for (const prods of downloadCatalog.values()) totalItems += prods.length;
 
-    for (const [cat, prods] of downloadCatalog.entries()) {
-        totalItems += prods.length;
-        const toolNames = prods.map(p => `\`${p.name}\``).join(', ');
-        inventoryDesc += `📁 **${cat}** (${prods.length}):\n${toolNames || '*None*'}\n\n`;
-    }
-
-    if (inventoryDesc.length > 3900) {
-        inventoryDesc = inventoryDesc.slice(0, 3900) + '...\n*(Inventory truncated due to Discord length limit)*';
-    }
-
-    return new EmbedBuilder()
-        .setTitle('🛠️ GMH Download Catalog Control')
-        .setDescription(`Current tools configured in the catalog.\n\n${inventoryDesc}`)
+    const embed = new EmbedBuilder()
+        .setTitle('🛠️ GMH Catalog Control Center')
+        .setDescription(
+            `Use the category browser or quick action buttons to manage your tools.\n\n` +
+            `📊 **Current Stats:** \`${totalItems}\` active tools | \`${downloadCatalog.size}\` categories`
+        )
         .setColor(0xFF0055)
-        .setFooter({ text: `Total Loaders: ${totalItems} | Total Categories: ${downloadCatalog.size}` })
         .setTimestamp();
-}
 
-function buildAdminControlRow() {
-    return new ActionRowBuilder().addComponents(
+    const categories = Array.from(downloadCatalog.keys());
+    const selectMenu = new StringSelectMenuBuilder()
+        .setCustomId('dl_hub_inspect_cat')
+        .setPlaceholder('📁 Browse products by category...')
+        .addOptions(
+            categories.slice(0, 25).map(cat => ({
+                label: cat,
+                description: `${downloadCatalog.get(cat).length} tool(s) inside`,
+                value: cat,
+                emoji: '📂'
+            }))
+        );
+
+    const row1 = new ActionRowBuilder().addComponents(selectMenu);
+    const row2 = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId('dl_admin_open_add').setLabel('Add Product (Multi-Game)').setStyle(ButtonStyle.Success).setEmoji('➕'),
-        new ButtonBuilder().setCustomId('dl_admin_open_edit').setLabel('Edit Product Link').setStyle(ButtonStyle.Primary).setEmoji('✏️'),
+        new ButtonBuilder().setCustomId('dl_admin_open_edit').setLabel('Edit Link').setStyle(ButtonStyle.Primary).setEmoji('✏️'),
         new ButtonBuilder().setCustomId('dl_admin_open_remove').setLabel('Remove Product/Group').setStyle(ButtonStyle.Danger).setEmoji('🗑️'),
-        new ButtonBuilder().setCustomId('dl_admin_refresh_view').setLabel('Refresh List').setStyle(ButtonStyle.Secondary).setEmoji('🔄')
+        new ButtonBuilder().setCustomId('dl_admin_refresh_view').setLabel('Refresh').setStyle(ButtonStyle.Secondary).setEmoji('🔄')
     );
+
+    return { embeds: [embed], components: [row1, row2] };
 }
 
 const APP_QUESTIONS = [
@@ -423,7 +429,7 @@ function buildTicketControlRow(isClaimed = false) {
 client.on('messageCreate', async (message) => {
     if (message.author.bot || !message.guild) return;
 
-    // 1. AUTOMOD FILTER (Permanent Embeds)
+    // 1. AUTOMOD FILTER
     if (message.author.id !== '659477576422785025' && message.member) {
         const contentLower = message.content.toLowerCase();
         const matchedWord = BANNED_KEYWORDS.find(keyword => contentLower.includes(keyword.toLowerCase()));
@@ -833,10 +839,8 @@ client.on('messageCreate', async (message) => {
         if (!isAdmin) return message.reply('❌ Admin permission required.');
         await message.delete().catch(() => {});
 
-        const adminEmbed = buildAdminCatalogEmbed();
-        const adminRow = buildAdminControlRow();
-
-        return await message.channel.send({ embeds: [adminEmbed], components: [adminRow] });
+        const hub = buildAdminHubMainView();
+        return await message.channel.send({ embeds: hub.embeds, components: hub.components });
     }
 });
 
@@ -1100,11 +1104,12 @@ client.on('interactionCreate', async (interaction) => {
             }
         }
 
-        // 4. MAIN ADMIN CATALOG MANAGEMENT (WITH MULTI-CATEGORY ADD & NAVIGATION BACK BUTTONS)
+        // 4. MAIN ADMIN CATALOG MANAGEMENT (HYBRID DASHBOARD)
         if (interaction.isButton()) {
-            if (interaction.customId === 'dl_admin_refresh_view') {
+            if (interaction.customId === 'dl_admin_refresh_view' || interaction.customId === 'dl_admin_back_to_main') {
                 if (!isAdmin) return await interaction.reply({ content: '❌ Admin required.', ephemeral: true });
-                return await interaction.update({ embeds: [buildAdminCatalogEmbed()], components: [buildAdminControlRow()] });
+                const hub = buildAdminHubMainView();
+                return await interaction.update({ content: null, embeds: hub.embeds, components: hub.components });
             }
 
             // MULTI-CATEGORY ADD (SELECT UP TO 10 AT ONCE)
@@ -1204,16 +1209,6 @@ client.on('interactionCreate', async (interaction) => {
                 });
             }
 
-            // BACK BUTTON TO RETURN TO ADMIN DASHBOARD
-            if (interaction.customId === 'dl_admin_back_to_main') {
-                if (!isAdmin) return await interaction.reply({ content: '❌ Admin required.', ephemeral: true });
-                return await interaction.update({
-                    content: 'Admin Panel refreshed:',
-                    embeds: [buildAdminCatalogEmbed()],
-                    components: [buildAdminControlRow()]
-                });
-            }
-
             // Customer Download Panel: Reset / Clear Selection
             if (interaction.customId === 'dl_customer_reset') {
                 const categories = Array.from(downloadCatalog.keys());
@@ -1235,7 +1230,27 @@ client.on('interactionCreate', async (interaction) => {
         }
 
         if (interaction.isStringSelectMenu()) {
-            // MULTI-CATEGORY ADD MODAL LAUNCHER (Safe Map Storage)
+            // CATEGORY INSPECTOR FROM MAIN DASHBOARD
+            if (interaction.customId === 'dl_hub_inspect_cat') {
+                if (!isAdmin) return await interaction.reply({ content: '❌ Admin required.', ephemeral: true });
+                const cat = interaction.values[0];
+                const prods = downloadCatalog.get(cat) || [];
+                const list = prods.map(p => `• \`${p.name}\` — [Link](${p.url})`).join('\n') || '*Empty*';
+
+                const inspectEmbed = new EmbedBuilder()
+                    .setTitle(`📁 Category Overview: ${cat}`)
+                    .setDescription(`Showing all ${prods.length} tools inside **${cat}**:\n\n${list}`)
+                    .setColor(0x00E5FF)
+                    .setTimestamp();
+
+                const backRow = new ActionRowBuilder().addComponents(
+                    new ButtonBuilder().setCustomId('dl_admin_back_to_main').setLabel('◀ Back to Admin Dashboard').setStyle(ButtonStyle.Secondary)
+                );
+
+                return await interaction.update({ embeds: [inspectEmbed], components: [backRow] });
+            }
+
+            // MULTI-CATEGORY ADD MODAL LAUNCHER
             if (interaction.customId === 'dl_admin_choose_add_category') {
                 if (!isAdmin) return await interaction.reply({ content: '❌ Admin required.', ephemeral: true });
 
@@ -1428,7 +1443,7 @@ client.on('interactionCreate', async (interaction) => {
                 return await interaction.showModal(modal);
             }
 
-            // Customer Download System (With Reset Button attached)
+            // Customer Download System
             if (interaction.customId === 'download_select_category') {
                 const selectedCategory = interaction.values[0];
                 const products = downloadCatalog.get(selectedCategory) || [];
