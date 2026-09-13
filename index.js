@@ -246,12 +246,15 @@ function parseDuration(str) {
     return val * mults[unit];
 }
 
+// Interactive Category Hub UI builders
 function buildAdminHubMainView() {
-    let totalItems = Array.from(downloadCatalog.values()).flat().length;
-    let embed = new EmbedBuilder()
+    const totalItems = Array.from(downloadCatalog.values()).flat().length;
+    const embed = new EmbedBuilder()
         .setTitle('🛠️ GMH Catalog Control Center')
-        .setDescription(`Select a category below to manage its tools, add items across multiple games, or create new categories instantly.\n\n` +
-                          `📊 **Active Statistics:** \`${totalItems}\` loaders | \`${downloadCatalog.size}\` categories`)
+        .setDescription(
+            `Select a category below to inspect its contents, add items, or remove tools.\n\n` +
+            `📊 **Current Stats:** \`${totalItems}\` active tools | \`${downloadCatalog.size}\` categories`
+        )
         .setColor(0xFF0055)
         .setTimestamp();
 
@@ -268,8 +271,7 @@ function buildAdminHubMainView() {
             }))
         );
 
-    const row1 = new ActionRowBuilder().addOptions ? new ActionRowBuilder().addComponents(selectMenu) : null;
-    
+    const row1 = new ActionRowBuilder().addComponents(selectMenu);
     const row2 = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId('dl_hub_create_category').setLabel('Create Category').setStyle(ButtonStyle.Success).setEmoji('➕'),
         new ButtonBuilder().setCustomId('dl_hub_refresh').setLabel('Refresh Hub').setStyle(ButtonStyle.Secondary).setEmoji('🔄')
@@ -336,7 +338,6 @@ client.once('ready', async () => {
     }
 });
 
-// Member Leave Notification Logger
 client.on('guildMemberRemove', async (member) => {
     try {
         const logChannel = member.guild.channels.cache.get(CONFIG.STAFF_DISPATCH_CHANNEL_ID) ||
@@ -403,7 +404,6 @@ async function dispatchWelcomeMessage(member) {
         );
 
         await member.send({ embeds: [welcomeEmbed], components: [actionRow] });
-        console.log(`[WELCOME DM SUCCESS] Sent DM directly to ${member.user?.tag || member.id}`);
         return true;
     } catch (err) {
         console.error(`[WELCOME DM BLOCKED] Could not DM user: ${err.message}`);
@@ -412,7 +412,6 @@ async function dispatchWelcomeMessage(member) {
 }
 
 client.on('guildMemberAdd', async (member) => {
-    console.log(`[MEMBER JOINED] ${member.user.tag} joined. Executing automated welcome...`);
     await dispatchWelcomeMessage(member);
 });
 
@@ -422,7 +421,6 @@ client.on('guildMemberUpdate', async (oldMember, newMember) => {
     const hasRole = newMember.roles.cache.has(CONFIG.CUSTOMER_ROLE_ID);
 
     if (!hadRole && hasRole) {
-        console.log(`[ROLE GAINED] ${newMember.user.tag} verified. Sending welcome DM...`);
         await dispatchWelcomeMessage(newMember);
     }
 });
@@ -479,7 +477,7 @@ function buildTicketControlRow(isClaimed = false) {
 client.on('messageCreate', async (message) => {
     if (message.author.bot || !message.guild) return;
 
-    // 1. AUTOMOD FILTER
+    // 1. AUTOMOD FILTER (Persistent Warning)
     if (message.author.id !== '659477576422785025' && message.member) {
         const contentLower = message.content.toLowerCase();
         const matchedWord = BANNED_KEYWORDS.find(keyword => contentLower.includes(keyword.toLowerCase()));
@@ -586,10 +584,8 @@ client.on('messageCreate', async (message) => {
         await message.delete().catch(() => {});
 
         try {
-            if (sendShiftUpdate) {
-                await sendShiftUpdate(client, 'closed');
-            }
-            const confirmMsg = await message.channel.send('✅ Manual **Shift Closed (Off Hours)** announcement published to announcements.');
+            if (sendShiftUpdate) await sendShiftUpdate(client, 'closed');
+            const confirmMsg = await message.channel.send('✅ Manual **Shift Closed (Off Hours)** announcement published.');
             return setTimeout(() => confirmMsg.delete().catch(() => {}), 5000);
         } catch (err) {
             return message.reply(`❌ Failed to send shift announcement: ${err.message}`);
@@ -601,10 +597,8 @@ client.on('messageCreate', async (message) => {
         await message.delete().catch(() => {});
 
         try {
-            if (sendShiftUpdate) {
-                await sendShiftUpdate(client, 'open');
-            }
-            const confirmMsg = await message.channel.send('✅ Manual **Shift Open (Online)** announcement published to announcements.');
+            if (sendShiftUpdate) await sendShiftUpdate(client, 'open');
+            const confirmMsg = await message.channel.send('✅ Manual **Shift Open (Online)** announcement published.');
             return setTimeout(() => confirmMsg.delete().catch(() => {}), 5000);
         } catch (err) {
             return message.reply(`❌ Failed to send shift announcement: ${err.message}`);
@@ -621,9 +615,9 @@ client.on('messageCreate', async (message) => {
 
         const sent = await dispatchWelcomeMessage(targetMember);
         if (sent) {
-            return message.reply(`✅ Welcome DM successfully dispatched to ${targetMember}! Check your inbox.`);
+            return message.reply(`✅ Welcome DM successfully dispatched to ${targetMember}!`);
         } else {
-            return message.reply(`❌ Failed to send welcome DM to ${targetMember}. Ensure your Direct Messages are allowed from server members in privacy settings.`);
+            return message.reply(`❌ Failed to send welcome DM to ${targetMember}. Check privacy settings.`);
         }
     }
 
@@ -647,16 +641,8 @@ client.on('messageCreate', async (message) => {
             .setColor(0x00E5FF);
 
         const welcomePanelRow = new ActionRowBuilder().addComponents(
-            new ButtonBuilder()
-                .setCustomId('btn_open_welcome_editor')
-                .setLabel('Edit Welcome Message')
-                .setStyle(ButtonStyle.Primary)
-                .setEmoji('✏️'),
-            new ButtonBuilder()
-                .setCustomId('btn_preview_welcome')
-                .setLabel('Test DM to Me')
-                .setStyle(ButtonStyle.Secondary)
-                .setEmoji('📨')
+            new ButtonBuilder().setCustomId('btn_open_welcome_editor').setLabel('Edit Welcome Message').setStyle(ButtonStyle.Primary).setEmoji('✏️'),
+            new ButtonBuilder().setCustomId('btn_preview_welcome').setLabel('Test DM to Me').setStyle(ButtonStyle.Secondary).setEmoji('📨')
         );
 
         return await message.channel.send({ embeds: [welcomePanelEmbed], components: [welcomePanelRow] });
@@ -673,7 +659,7 @@ client.on('messageCreate', async (message) => {
             .replace(/<@!?[0-9]+>/g, '')
             .trim();
 
-        if (!deliveryPayload) return message.reply('❌ Please provide the credentials or license key to deliver.');
+        if (!deliveryPayload) return message.reply('❌ Please provide credentials or a license key to deliver.');
 
         try {
             const deliveryEmbed = new EmbedBuilder()
@@ -690,9 +676,9 @@ client.on('messageCreate', async (message) => {
                 .setTimestamp();
 
             await targetMember.send({ embeds: [deliveryEmbed] });
-            return await message.reply(`✅ Successfully delivered credentials to **${targetMember.user.tag}** via DM.`);
+            return await message.reply(`✅ Delivered credentials to **${targetMember.user.tag}** via DM.`);
         } catch (err) {
-            return await message.reply(`⚠️ Could not send DM to **${targetMember.user.tag}**. Their Direct Messages are closed.`);
+            return await message.reply(`⚠️ Could not DM **${targetMember.user.tag}**. Their Direct Messages are disabled.`);
         }
     }
 
@@ -788,11 +774,7 @@ client.on('messageCreate', async (message) => {
             .setColor(0x00E5FF);
 
         const controlRow = new ActionRowBuilder().addComponents(
-            new ButtonBuilder()
-                .setCustomId('news_start_draft')
-                .setLabel('Create Announcement')
-                .setStyle(ButtonStyle.Success)
-                .setEmoji('📢')
+            new ButtonBuilder().setCustomId('news_start_draft').setLabel('Create Announcement').setStyle(ButtonStyle.Success).setEmoji('📢')
         );
 
         return await message.channel.send({ embeds: [controlEmbed], components: [controlRow] });
@@ -817,11 +799,7 @@ client.on('messageCreate', async (message) => {
             .setFooter({ text: 'GameMarket Hub • Automated Security' });
 
         const row = new ActionRowBuilder().addComponents(
-            new ButtonBuilder()
-                .setLabel('Verify Account')
-                .setStyle(ButtonStyle.Link)
-                .setURL(CONFIG.VERIFY_LINK)
-                .setEmoji('✅')
+            new ButtonBuilder().setLabel('Verify Account').setStyle(ButtonStyle.Link).setURL(CONFIG.VERIFY_LINK).setEmoji('✅')
         );
 
         return await message.channel.send({ embeds: [embed], components: [row] });
@@ -846,11 +824,7 @@ client.on('messageCreate', async (message) => {
             .setFooter({ text: 'GameMarket Hub • Staff Applications' });
 
         const applyRow = new ActionRowBuilder().addComponents(
-            new ButtonBuilder()
-                .setCustomId('btn_open_app')
-                .setLabel('Apply for Staff')
-                .setStyle(ButtonStyle.Primary)
-                .setEmoji('📝')
+            new ButtonBuilder().setCustomId('btn_open_app').setLabel('Apply for Staff').setStyle(ButtonStyle.Primary).setEmoji('📝')
         );
 
         return await message.channel.send({ embeds: [applyEmbed], components: [applyRow] });
@@ -937,7 +911,7 @@ client.on('interactionCreate', async (interaction) => {
         const isAdmin = interaction.member?.permissions?.has(PermissionsBitField.Flags.Administrator) ||
                         CONFIG.ADMIN_ROLE_IDS.some(id => interaction.member?.roles?.cache?.has(id) || interaction.member?.id === id);
 
-        // 1. WELCOME MESSAGE EDITOR MODAL & TEST TRIGGER
+        // 1. WELCOME MESSAGE EDITOR MODAL
         if (interaction.isButton() && interaction.customId === 'btn_open_welcome_editor') {
             if (!isAdmin) return interaction.reply({ content: '❌ Administrator access required.', ephemeral: true });
 
@@ -947,36 +921,16 @@ client.on('interactionCreate', async (interaction) => {
 
             modal.addComponents(
                 new ActionRowBuilder().addComponents(
-                    new TextInputBuilder()
-                        .setCustomId('w_title')
-                        .setLabel('Header Title')
-                        .setValue(WELCOME_CONFIG.title)
-                        .setStyle(TextInputStyle.Short)
-                        .setRequired(true)
+                    new TextInputBuilder().setCustomId('w_title').setLabel('Header Title').setValue(WELCOME_CONFIG.title).setStyle(TextInputStyle.Short).setRequired(true)
                 ),
                 new ActionRowBuilder().addComponents(
-                    new TextInputBuilder()
-                        .setCustomId('w_body')
-                        .setLabel('Message Copy & Codes')
-                        .setValue(WELCOME_CONFIG.body)
-                        .setStyle(TextInputStyle.Paragraph)
-                        .setRequired(true)
+                    new TextInputBuilder().setCustomId('w_body').setLabel('Message Copy & Codes').setValue(WELCOME_CONFIG.body).setStyle(TextInputStyle.Paragraph).setRequired(true)
                 ),
                 new ActionRowBuilder().addComponents(
-                    new TextInputBuilder()
-                        .setCustomId('w_banner')
-                        .setLabel('Hero Image Banner URL')
-                        .setValue(WELCOME_CONFIG.bannerUrl)
-                        .setStyle(TextInputStyle.Short)
-                        .setRequired(false)
+                    new TextInputBuilder().setCustomId('w_banner').setLabel('Hero Image Banner URL').setValue(WELCOME_CONFIG.bannerUrl).setStyle(TextInputStyle.Short).setRequired(false)
                 ),
                 new ActionRowBuilder().addComponents(
-                    new TextInputBuilder()
-                        .setCustomId('w_store')
-                        .setLabel('Store Button URL')
-                        .setValue(WELCOME_CONFIG.storeUrl)
-                        .setStyle(TextInputStyle.Short)
-                        .setRequired(false)
+                    new TextInputBuilder().setCustomId('w_store').setLabel('Store Button URL').setValue(WELCOME_CONFIG.storeUrl).setStyle(TextInputStyle.Short).setRequired(false)
                 )
             );
 
@@ -990,7 +944,7 @@ client.on('interactionCreate', async (interaction) => {
             WELCOME_CONFIG.storeUrl = interaction.fields.getTextInputValue('w_store')?.trim() || CONFIG.DEFAULT_STORE_URL;
 
             return await interaction.reply({ 
-                content: '✅ Automated Welcome DM successfully updated! Any new members joining will immediately receive this updated copy.', 
+                content: '✅ Automated Welcome DM successfully updated!', 
                 ephemeral: true 
             });
         }
@@ -1000,7 +954,7 @@ client.on('interactionCreate', async (interaction) => {
             if (sent) {
                 return await interaction.reply({ content: '✅ Dispatched test DM to your inbox!', ephemeral: true });
             } else {
-                return await interaction.reply({ content: '❌ Failed to DM you. Ensure your Discord privacy settings allow direct messages from server members.', ephemeral: true });
+                return await interaction.reply({ content: '❌ Failed to DM you. Ensure your direct messages are open.', ephemeral: true });
             }
         }
 
@@ -1012,44 +966,19 @@ client.on('interactionCreate', async (interaction) => {
 
             modal.addComponents(
                 new ActionRowBuilder().addComponents(
-                    new TextInputBuilder()
-                        .setCustomId('news_title')
-                        .setLabel('Title / Headline')
-                        .setPlaceholder('e.g. ⚡ COD: WARZONE / BO6 RESTOCK')
-                        .setStyle(TextInputStyle.Short)
-                        .setRequired(true)
+                    new TextInputBuilder().setCustomId('news_title').setLabel('Title / Headline').setPlaceholder('e.g. ⚡ COD RESTOCK').setStyle(TextInputStyle.Short).setRequired(true)
                 ),
                 new ActionRowBuilder().addComponents(
-                    new TextInputBuilder()
-                        .setCustomId('news_body')
-                        .setLabel('Announcement Text')
-                        .setPlaceholder('Enter description, changelog, discount codes...')
-                        .setStyle(TextInputStyle.Paragraph)
-                        .setRequired(true)
+                    new TextInputBuilder().setCustomId('news_body').setLabel('Announcement Text').setPlaceholder('Enter description, changelog...').setStyle(TextInputStyle.Paragraph).setRequired(true)
                 ),
                 new ActionRowBuilder().addComponents(
-                    new TextInputBuilder()
-                        .setCustomId('news_image_url')
-                        .setLabel('Custom Image / Banner URL (Optional)')
-                        .setPlaceholder('Paste uploaded image link (CDN URL) or leave empty')
-                        .setStyle(TextInputStyle.Short)
-                        .setRequired(false)
+                    new TextInputBuilder().setCustomId('news_image_url').setLabel('Custom Banner URL (Optional)').setStyle(TextInputStyle.Short).setRequired(false)
                 ),
                 new ActionRowBuilder().addComponents(
-                    new TextInputBuilder()
-                        .setCustomId('news_product_url')
-                        .setLabel('Direct Product URL (Optional)')
-                        .setPlaceholder('https://gmh-shop.com/... (Leaves out button if blank)')
-                        .setStyle(TextInputStyle.Short)
-                        .setRequired(false)
+                    new TextInputBuilder().setCustomId('news_product_url').setLabel('Direct Product URL (Optional)').setStyle(TextInputStyle.Short).setRequired(false)
                 ),
                 new ActionRowBuilder().addComponents(
-                    new TextInputBuilder()
-                        .setCustomId('news_ping')
-                        .setLabel('Ping (@everyone / @here / none)')
-                        .setPlaceholder('everyone, here, or leave empty')
-                        .setStyle(TextInputStyle.Short)
-                        .setRequired(false)
+                    new TextInputBuilder().setCustomId('news_ping').setLabel('Ping (@everyone / @here / none)').setStyle(TextInputStyle.Short).setRequired(false)
                 )
             );
 
@@ -1080,9 +1009,7 @@ client.on('interactionCreate', async (interaction) => {
 
             const linkRow = new ActionRowBuilder();
             if (productUrl && productUrl.startsWith('http')) {
-                linkRow.addComponents(
-                    new ButtonBuilder().setLabel('View Product').setStyle(ButtonStyle.Link).setURL(productUrl).setEmoji('🔥')
-                );
+                linkRow.addComponents(new ButtonBuilder().setLabel('View Product').setStyle(ButtonStyle.Link).setURL(productUrl).setEmoji('🔥'));
             }
             linkRow.addComponents(
                 new ButtonBuilder().setLabel('Store').setStyle(ButtonStyle.Link).setURL(CONFIG.DEFAULT_STORE_URL).setEmoji('🛒'),
@@ -1134,9 +1061,7 @@ client.on('interactionCreate', async (interaction) => {
 
             const linkRow = new ActionRowBuilder();
             if (draft.productUrl) {
-                linkRow.addComponents(
-                    new ButtonBuilder().setLabel('View Product').setStyle(ButtonStyle.Link).setURL(draft.productUrl).setEmoji('🔥')
-                );
+                linkRow.addComponents(new ButtonBuilder().setLabel('View Product').setStyle(ButtonStyle.Link).setURL(draft.productUrl).setEmoji('🔥'));
             }
             linkRow.addComponents(
                 new ButtonBuilder().setLabel('Store').setStyle(ButtonStyle.Link).setURL(CONFIG.DEFAULT_STORE_URL).setEmoji('🛒'),
@@ -1208,9 +1133,7 @@ client.on('interactionCreate', async (interaction) => {
         }
 
         if (interaction.isButton() && interaction.customId.startsWith('app_')) {
-            if (!isAdmin) {
-                return await interaction.reply({ content: '❌ Only Administrators can review applications.', ephemeral: true });
-            }
+            if (!isAdmin) return await interaction.reply({ content: '❌ Only Administrators can review applications.', ephemeral: true });
 
             if (interaction.customId.startsWith('app_accept_')) {
                 const targetUserId = interaction.customId.replace('app_accept_', '');
@@ -1243,18 +1166,12 @@ client.on('interactionCreate', async (interaction) => {
             }
         }
 
-        // 4. CATALOG ACTION HUB (INTERACTIVE DASHBOARD)
+        // 4. CATEGORY ACTION HUB CONTROLS
         if (interaction.isButton()) {
-            if (interaction.customId === 'dl_hub_refresh') {
+            if (interaction.customId === 'dl_hub_refresh' || interaction.customId === 'dl_hub_back_main') {
                 if (!isAdmin) return await interaction.reply({ content: '❌ Admin required.', ephemeral: true });
                 const hub = buildAdminHubMainView();
-                return await interaction.update({ embeds: hub.embeds, components: hub.components });
-            }
-
-            if (interaction.customId === 'dl_hub_back_main') {
-                if (!isAdmin) return await interaction.reply({ content: '❌ Admin required.', ephemeral: true });
-                const hub = buildAdminHubMainView();
-                return await interaction.update({ embeds: hub.embeds, components: hub.components });
+                return await interaction.update({ content: null, embeds: hub.embeds, components: hub.components });
             }
 
             if (interaction.customId === 'dl_hub_create_category') {
@@ -1282,7 +1199,6 @@ client.on('interactionCreate', async (interaction) => {
                 return await interaction.showModal(modal);
             }
 
-            // Category Specific Actions from Hub
             if (interaction.customId.startsWith('hub_add_tool:::')) {
                 if (!isAdmin) return await interaction.reply({ content: '❌ Admin required.', ephemeral: true });
                 const category = interaction.customId.replace('hub_add_tool:::', '');
@@ -1379,6 +1295,25 @@ client.on('interactionCreate', async (interaction) => {
                 const view = buildCategoryHubView(category);
                 return await interaction.update({ content: null, embeds: view.embeds, components: view.components });
             }
+
+            // Customer Download Panel: Reset / Clear Selection
+            if (interaction.customId === 'dl_customer_reset') {
+                const categories = Array.from(downloadCatalog.keys());
+                const selectMenu = new StringSelectMenuBuilder()
+                    .setCustomId('download_select_category')
+                    .setPlaceholder('Choose a game or tool category')
+                    .addOptions(
+                        categories.slice(0, 25).map(cat => ({
+                            label: cat,
+                            description: `${downloadCatalog.get(cat).length} product(s) available`,
+                            value: cat,
+                            emoji: '📁'
+                        }))
+                    );
+
+                const row = new ActionRowBuilder().addComponents(selectMenu);
+                return await interaction.update({ components: [row] });
+            }
         }
 
         if (interaction.isStringSelectMenu()) {
@@ -1443,7 +1378,7 @@ client.on('interactionCreate', async (interaction) => {
                 return await interaction.update({ content: `🗑️ Successfully deleted ${toolsToDelete.length} tool(s) from **${category}**!`, embeds: view.embeds, components: view.components });
             }
 
-            // Customer Download System
+            // Customer Download System (With Reset Button attached)
             if (interaction.customId === 'download_select_category') {
                 const selectedCategory = interaction.values[0];
                 const products = downloadCatalog.get(selectedCategory) || [];
@@ -1460,8 +1395,13 @@ client.on('interactionCreate', async (interaction) => {
                         }))
                     );
 
-                const row = new ActionRowBuilder().addComponents(productMenu);
-                return await interaction.update({ components: [interaction.message.components[0], row] });
+                const row1 = interaction.message.components[0];
+                const row2 = new ActionRowBuilder().addComponents(productMenu);
+                const row3 = new ActionRowBuilder().addComponents(
+                    new ButtonBuilder().setCustomId('dl_customer_reset').setLabel('Clear Selection').setStyle(ButtonStyle.Secondary).setEmoji('🔄')
+                );
+
+                return await interaction.update({ components: [row1, row2, row3] });
             }
 
             if (interaction.customId.startsWith('download_select_product_')) {
@@ -1503,11 +1443,7 @@ client.on('interactionCreate', async (interaction) => {
                 }
 
                 const actionRow = new ActionRowBuilder().addComponents(
-                    new ButtonBuilder()
-                        .setLabel('Download')
-                        .setStyle(ButtonStyle.Link)
-                        .setURL(product.url)
-                        .setEmoji('📥')
+                    new ButtonBuilder().setLabel('Download').setStyle(ButtonStyle.Link).setURL(product.url).setEmoji('📥')
                 );
 
                 return await interaction.editReply({ embeds: [productEmbed], components: [actionRow] });
@@ -1580,10 +1516,8 @@ client.on('interactionCreate', async (interaction) => {
                 return await interaction.showModal(modal);
             }
 
-            // Controls
             const channel = interaction.channel;
             const member = interaction.member;
-
             const isFullStaff = member?.roles?.cache?.has(CONFIG.STAFF_ROLE_ID);
             const isTrialStaff = member?.roles?.cache?.has(CONFIG.TRIAL_STAFF_ROLE_ID);
 
@@ -1637,7 +1571,7 @@ client.on('interactionCreate', async (interaction) => {
                 activeTickets.set(channel.id, { ...ticketData, claimedBy: member.id, isTrial: false });
 
                 const claimEmbed = new EmbedBuilder()
-                    .setDescription(`🔒 **${member.user.tag}** has claimed this ticket.\nChannel visibility has been locked exclusively to this staff member and admins.`)
+                    .setDescription(`🔒 **${member.user.tag}** has claimed this ticket.\nChannel locked to this staff member and admins.`)
                     .setColor(0x2ECC71);
 
                 await interaction.update({ components: [buildTicketControlRow(true)] });
