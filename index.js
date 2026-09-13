@@ -70,27 +70,22 @@ const CONFIG = {
 let WELCOME_CONFIG = {
     title: '🎉 Welcome to GameMarket Hub!',
     body: 
-        `To welcome you aboard, we've issued two exclusive discount vouchers for our store:\n\n` +
-        `🎟️ **Starter Voucher (One-Time Access)**\n` +
-        `\`\`\`text\nGMH\n\`\`\`\n` +
-        `• **25% OFF** your order\n` +
-        `• Valid for **1 single purchase** (best value on larger baskets)\n\n` +
-        `🎟️ **Standard Voucher (Multi-Use)**\n` +
-        `\`\`\`text\nNEW10\n\`\`\`\n` +
-        `• **10% OFF** your order\n` +
-        `• Can be reused up to **10 times** per customer\n\n` +
-        `👑 **GMH VIP Inner Circle ($50+ Spend)**\n` +
-        `Spend a minimum of **$50** in our store to unlock access to our **Private VIP Server**:\n` +
-        `• 100% private, sanitized environment\n` +
-        `• Completely protected against unwanted snipers and scammers\n` +
-        `• Priority loader access and dedicated VIP perks\n\n` +
-        `💡 **How to Apply Your Discounts:**\n` +
-        `1. Select your tools on [gmh-shop.com](https://gmh-shop.com)\n` +
-        `2. Add your products to the cart\n` +
-        `3. Enter \`GMH\` (25% off once) or \`NEW10\` (10% off recurring) at checkout\n` +
-        `4. Enjoy instant automated key delivery directly after purchase\n\n` +
-        `❓ **Need Help or Setup Support?**\n` +
-        `If you have questions about prerequisites, compatibility, or alternative payments, click below to open a ticket directly.`,
+        "To welcome you aboard, we've issued two exclusive discount vouchers for our store:\n\n" +
+        "🎟️ **Starter Voucher (One-Time Access)**\n" +
+        "```text\nGMH\n```\n" +
+        "• **25% OFF** your order\n" +
+        "• Valid for **1 single purchase** (best value on larger baskets)\n\n" +
+        "🎟️ **Standard Voucher (Multi-Use)**\n" +
+        "```text\nNEW10\n```\n" +
+        "• **10% OFF** your order\n" +
+        "• Can be reused up to **10 times** per customer\n\n" +
+        "💡 **How to Apply Your Discounts:**\n" +
+        "1. Select your tools on [gmh-shop.com](https://gmh-shop.com)\n" +
+        "2. Add your products to the cart\n" +
+        "3. Enter 'GMH' (25% off once) or 'NEW10' (10% off recurring) at checkout\n" +
+        "4. Enjoy instant automated key delivery directly after purchase\n\n" +
+        "❓ **Need Help or Setup Support?**\n" +
+        "If you have questions about prerequisites, compatibility, or alternative payments, click below to open a ticket directly.",
     bannerUrl: CONFIG.PERMANENT_BANNER_URL,
     storeUrl: CONFIG.DEFAULT_STORE_URL
 };
@@ -124,6 +119,7 @@ const activeTickets = new Map();
 const draftAnnouncements = new Map();
 const afkUsers = new Map();
 const afkCooldowns = new Map();
+const pendingMultiAdd = new Map();
 
 // =============================================================
 // PRE-POPULATED STORE CATALOG
@@ -467,10 +463,8 @@ client.on('messageCreate', async (message) => {
                 .setDescription(`${message.author}, ${randomWarning}\n\n*Triggered keyword:* \`||${matchedWord}||\``)
                 .setColor(0xFF0055);
 
-            const replyMsg = await message.channel.send({ embeds: [warnEmbed] }).catch(() => null);
-            if (replyMsg) {
-                setTimeout(() => replyMsg.delete().catch(() => {}), 30 * 1000);
-            }
+            // Warning embed stays in chat permanently
+            await message.channel.send({ embeds: [warnEmbed] }).catch(() => null);
             return;
         }
     }
@@ -1355,10 +1349,11 @@ client.on('interactionCreate', async (interaction) => {
                     });
                 }
 
-                const categoriesKey = encodeURIComponent(selected.join('---'));
+                pendingMultiAdd.set(interaction.user.id, selected);
+
                 const modal = new ModalBuilder()
-                    .setCustomId(`modal_dl_add_product_MULTI:::${categoriesKey}`)
-                    .setTitle(isNew ? 'Create New Category & Tool' : `Add Tool to ${selected.length} Categories`);
+                    .setCustomId('modal_dl_add_product_MULTI')
+                    .setTitle(isNew ? 'Create New Category & Tool' : `Add Tool (${selected.length} Categories)`.slice(0, 45));
 
                 if (isNew) {
                     modal.addComponents(
@@ -1889,13 +1884,13 @@ client.on('interactionCreate', async (interaction) => {
             }
 
             // MULTI-CATEGORY PRODUCT ADDITION HANDLER
-            if (interaction.customId.startsWith('modal_dl_add_product_MULTI:::')) {
+            if (interaction.customId === 'modal_dl_add_product_MULTI') {
                 if (!isAdmin) {
                     return await interaction.reply({ content: '❌ Access Denied: Admin permission required.', ephemeral: true });
                 }
 
-                const rawCategories = decodeURIComponent(interaction.customId.replace('modal_dl_add_product_MULTI:::', ''));
-                let targetCategories = rawCategories.split('---');
+                let targetCategories = pendingMultiAdd.get(interaction.user.id) || [];
+                pendingMultiAdd.delete(interaction.user.id);
 
                 if (targetCategories.includes('__NEW_CATEGORY__')) {
                     const newCat = interaction.fields.getTextInputValue('dl_new_cat_name').toUpperCase().trim();
@@ -1903,6 +1898,10 @@ client.on('interactionCreate', async (interaction) => {
                         return await interaction.reply({ content: '❌ Category name cannot be empty.', ephemeral: true });
                     }
                     targetCategories = [newCat];
+                }
+
+                if (targetCategories.length === 0) {
+                    return await interaction.reply({ content: '❌ Session expired. Please try selecting categories again.', ephemeral: true });
                 }
 
                 const name = interaction.fields.getTextInputValue('dl_name').trim();
