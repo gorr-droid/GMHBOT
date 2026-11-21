@@ -1,0 +1,33 @@
+{
+  "chart": {
+    "symbol": "XAUUSD",
+    "provider": "RoboForex MT5",
+    "observedAt": "2026-11-02T11:13:02.026264+00:00",
+    "analysedAt": "2026-11-02T11:19:15.988390+00:00",
+    "bid": 3899.81,
+    "ask": 3900.01,
+    "h1CloseAt": "2026-11-02T11:00:00+00:00",
+    "h1Close": 3898.43,
+    "h1Ema200": 4024.1315830580106,
+    "swingLows": [3891.04, 3891.15],
+    "swingHighs": [3914.99, 3919.26],
+    "rawWorkspaceFile": "mt5_review/20261102T111302Z_read_only.json",
+    "rawSha256": "d8be37fd767a9cd31b3addf49f81192e0930bc18df3bf03afaf4fc32f25b8579",
+    "analysisWorkspaceFile": "mt5_review/chart_analysis.json",
+    "analysisSha256": "9ec5b27bfd4defcfcef4acb87ae97f9f6784962d03949bc24e0d1ebd973bd57b"
+  },
+  "calendar": {
+    "checkedDate": "2026-11-21",
+    "releaseAt": "2026-11-25T13:30:00Z",
+    "reportNames": [
+      "Third-quarter GDP (second estimate) and corporate profits",
+      "October Personal Income and Outlays, including the PCE price index"
+    ],
+    "provider": "US Bureau of Economic Analysis",
+    "url": "https://www.bea.gov/news/schedule/full",
+    "releaseDateCorroboration": [
+      "https://www.bea.gov/news/2026/gdp-advance-estimate-3rd-quarter-2026",
+      "https://www.bea.gov/news/2026/personal-income-and-outlays-september-2026"
+    ]
+  }
+}

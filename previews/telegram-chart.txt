@@ -1,0 +1,9 @@
+Aurum Desk • Archive chart review | XAUUSD | 2 Nov 2026
+
+RoboForex MT5 recorded a bid of 3,899.81 and an ask of 3,900.01 USD per ounce at 11:13 UTC.
+
+The hourly candle closed at 3,898.43 at 11:00 UTC, below its 200-hour exponential moving average of 4,024.13.
+
+Earlier hourly swing lows clustered at 3,891.04–3,891.15. The nearby swing highs were 3,914.99–3,919.26.
+
+Source • Archived RoboForex MT5 XAUUSD quotes and completed hourly bars. Chart reviewed 2 Nov 2026 at 11:19 UTC.
