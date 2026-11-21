@@ -1,4 +1,4 @@
-# Aurum Desk • nadgradnja GMH bota
+# Aurum Desk 2.1 • nadgradnja GMH bota
 
 To je nadgradnja za **isto aplikacijo Discord**. Gostovanje še naprej zaganja `node index.js` in uporablja obstoječo nastavitev `BOT_TOKEN` ali `DISCORD_TOKEN`. Podatki o članih in kanalih ostanejo v istem strežniku. Starega panela za prodajo, dostavo licenc in dnevnega brisanja kanalov novi program ne zaganja.
 
@@ -19,14 +19,17 @@ Po zagonu posodobljeni bot prikazuje dejavnost **Watching XAUUSD • Aurum Desk*
 | `!fix-bot-nickname` | Nastavi prikazno ime istega bota na **Aurum Desk** v tem strežniku. Če je globalno ime že pravilno, odstrani odvečni stari vzdevek. |
 | `!setup-welcome` | Odpre upravljanje dobrodošlice. |
 | `!sendwelcome` | Prikaže dobrodošlico lastniku v predogled. |
+| `!ticket-preview` | V zasebnem pogovoru pokaže kartico za tickete. Klik na temo pokaže uvodno vprašanje za člana. |
 | `!activate` / `!pause-welcome` | Vključi ali začasno ustavi dobrodošlico. Obvestila lastniku o prihodih so ločena. |
 | `!spawn-tickets` ali `!setup-tickets` | Namesti panel s tremi vrstami zasebnih zahtevkov v obstoječi **👋・start-here**. |
 | `!send-verify` | V **👋・start-here** namesti pravila z gumbom **Accept rules**. Ob ponovitvi preveri obstoječi panel. |
 | `!setup-news` | Odpre zasebno upravljanje predogledov in deljenja objav. |
-| `!news-preview discord-plan` | Prikaže točno besedilo za izbrani cilj in ponudi vklop prihodnjih objav. |
+| `!news-preview discord-plan` | Pokaže kartico s kratkim načrtom za Discord. Uporabi `telegram-plan` za Telegramovo postavitev, `discord-news` ali `telegram-news` za novico. |
 | `!news-status` / `!news-pause` | Prikaže stanje ali ustavi deljenje. |
 
-Vse štiri cilje upravljaš ločeno. `discord-news` piše v **🗓️・news-calendar**, `discord-plan` v **📊・gold-market-plan**, `telegram-news` in `telegram-plan` pa v **@AurumDeskk**. Za Telegram nastavi `AURUM_TELEGRAM_BOT_TOKEN` na gostovanju tega bota in omogoči tej Telegram aplikaciji objavljanje v kanalu. Discordov žeton ostane obstoječi.
+Po nadgradnji na 2.1 vsi štirje cilji čakajo na novo potrditev. Predogled vidiš v zasebnem pogovoru z botom. Če za cilj še ni preverjenega članka, dobiš označen zgodovinski primer z virom. Gumb za arhiv v primeru odpre spletni arhiv, pri objavljenem članku pa gumb odpre članek. Vsak cilj lahko posebej vključiš po pregledu.
+
+`discord-news` piše v **🗓️・news-calendar**, `discord-plan` v **📊・gold-market-plan**, `telegram-news` in `telegram-plan` pa v **@AurumDeskk**. Za poznejše objavljanje na Telegramu nastavi `AURUM_TELEGRAM_BOT_TOKEN` na gostovanju tega bota in omogoči Telegram aplikaciji objavljanje v kanalu.
 
 Član izbere **Gold education**, **Chart review** ali **Community / VIP access**. Vidnost novega pogovora je omejena na člana, lastnika in bota; Discordovi administratorji lahko vidijo zasebne kanale. Ob zaprtju se članu odvzame dostop in pogovor ostane lastniku. Nov panel nastane samo na ukaz lastnika. Za ustvarjanje kanalov je potrebno Manage Channels, za urejanje dostopa pri zapiranju Manage Roles in za panel branje/pisanje v start-here. Namestitev bota ne spreminja vlog obstoječih članov.
 
@@ -34,6 +37,6 @@ Za sprejemanje pravil ima bot dovoljenje **Manage Roles**, njegova vloga pa mora
 
 ## Kako deluje deljenje
 
-Bot na pet minut pregleda javni vir spletne strani, ko je vsaj en cilj vključen. Pred objavo preveri tudi javno stran članka in njegov identifikator. Vsak cilj prejme nov članek največ enkrat. Če se odgovor pri pošiljanju izgubi, poglej stanje in dejanski kanal. Bot takega pošiljanja samodejno ne ponovi. Začetni vklop prezre stare objave. Če domena zahteva Vercelov izziv, preveri javno dostopnost poti `/aurum/*` in `/api/aurum/feed` v običajnem brskalniku in strežniškem odjemalcu.
+Bot na pet minut pregleda javni vir spletne strani, ko je vsaj en cilj vključen. Pred objavo preveri tudi javno stran članka in njegov identifikator. Discord dobi kartico z gumbom, Telegram oblikovano sporočilo z gumbom pod besedilom. Če se odgovor pri pošiljanju izgubi, poglej `!news-status` in dejanski kanal. Bot takega pošiljanja samodejno ne ponovi. Začetni vklop prezre stare objave. Javni arhiv je na [gmh-shop.com/aurum](https://gmh-shop.com/aurum).
 
 Za povratek uporabi prejšnjo različico iste storitve. Izvorne štiri datoteke iz Downloads so se pri pripravi te nadgradnje ujemale z obstoječim arhivom `GMHBOT-main.zip`. Povrnitev stare kode znova omogoči tudi njene prvotne prodajne funkcije in časovnike.

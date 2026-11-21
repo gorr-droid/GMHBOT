@@ -1,5 +1,7 @@
 import { ChannelType, Events, InteractionContextType } from 'discord.js';
-import { AURUM_BOT_ID, welcomeText } from './discord.mjs';
+import { AURUM_BOT_ID, memberWelcome } from './discord.mjs';
+import { DEFAULT_WELCOME, ticketIntroCard, ticketPanelCard, ticketTopics } from './community-cards.mjs';
+import release from '../package.json' with { type: 'json' };
 import { GUILD_ID, OWNER_ID, assertServer } from './onboarding.mjs';
 import { PUBLISH_TARGETS } from './publisher.mjs';
 
@@ -8,23 +10,28 @@ const silent = { allowedMentions: { parse: [], repliedUser: false } };
 const button = (id, label, style = 2) => ({ type: 2, custom_id: prefix + id, label, style });
 const row = (...components) => ({ type: 1, components });
 const targetKeys = Object.keys(PUBLISH_TARGETS);
-const commands = new Set(['!help', '!ping', '!fix-bot-nickname', '!setup-tickets', '!setup-news', '!news-preview',
+const commands = new Set(['!help', '!ping', '!fix-bot-nickname', '!setup-tickets', '!ticket-preview', '!setup-news', '!news-preview',
   '!news-enable', '!news-pause', '!news-status', '!setup-welcome', '!sendwelcome', '!activate', '!pause-welcome', '!send-verify']);
-const help = [
-  'Aurum Desk owner commands',
-  '!setup-news — preview and enable website articles for each destination.',
-  '!news-preview <target> or !news-enable <target> — open its preview and confirmation button.',
-  '!news-pause <target|all> and !news-status — pause or check sharing.',
-  'Targets: ' + targetKeys.join(', '),
-  '!setup-welcome — edit the new-member DM. !sendwelcome sends a preview to you.',
-  '!activate and !pause-welcome — turn welcome DMs on or off. Owner join notices stay active.',
-  '!setup-tickets or !spawn-tickets — install the trading support ticket panel.',
-  '!send-verify — install the rules and Member role button in start-here.',
-  '!fix-bot-nickname — make the bot appear as Aurum Desk in this server.',
-  '!ping — check the bot connection.'
-].join('\n');
+const help = { embeds: [{ color: 0xC5A15A, title: 'Owner guide', author: { name: 'Aurum Desk' }, fields: [
+  { name: 'Member welcome', value: '`!sendwelcome` previews a new member’s card here. Edit it with `!setup-welcome`. Use `!activate` or `!pause-welcome` to manage welcome DMs.' },
+  { name: 'Tickets and rules', value: '`!ticket-preview` lets you try a topic privately. `!setup-tickets` (also `!spawn-tickets`) installs or refreshes the panel in start-here. `!send-verify` installs the rules button.' },
+  { name: 'Gold posts', value: '`!setup-news` shows four destinations. `!news-preview <target>` and `!news-enable <target>` both open a preview. Only the confirmation button enables sharing.' },
+  { name: 'Sharing status', value: '`!news-status` shows each destination. `!news-pause all` or `!news-pause <target>` pauses sharing. Targets: ' + targetKeys.map(key => '`' + key + '`').join(', ') + '.' },
+  { name: 'Bot settings', value: '`!ping` shows the running version. `!fix-bot-nickname` updates the bot’s name in this server.' }
+] }] };
+function ticketPreviewMenu() {
+  const card = ticketPanelCard();
+  return { ...card, content: 'Private preview · Choose a topic to see its opening message.',
+    components: [row(...Object.keys(ticketTopics).map(key => ({
+      ...button('ticket-demo:' + key, ticketTopics[key].label), emoji: { name: ticketTopics[key].emoji }
+    })))] };
+}
 const newsMenu = () => ({
-  content: 'Choose a destination to review its website article format and sharing settings.',
+  embeds: [{ color: 0xC5A15A, author: { name: 'Aurum Desk  /  Editorial' }, title: 'Review a gold post',
+    description: 'Choose where you want to see the post. The preview opens here in your private conversation.',
+    fields: [{ name: 'Gold news', value: 'Economic releases and policy decisions that matter for gold.', inline: true },
+      { name: 'Market plan', value: 'What to watch in the next session, with the full article one tap away.', inline: true }],
+    footer: { text: 'Owner controls · Each destination has its own sharing setting' } }],
   components: [row(...targetKeys.map(key => button('preview:' + key, PUBLISH_TARGETS[key].label))),
     row(button('status', 'Sharing status'), button('pause:all', 'Pause all sharing', 4))]
 });
@@ -57,10 +64,14 @@ export function installOwnerControls(client, { guild, state, tickets, publisher,
   assertServer(guild);
   const active = new Set();
   let closing = false;
-  const currentWelcome = () => state.setting('welcome-text', welcomeText());
+  const currentWelcome = () => state.setting('welcome-text', DEFAULT_WELCOME);
+  const previewWelcome = () => memberWelcome(state, OWNER_ID, tickets?.hasPanel?.());
   function welcomeMenu() {
     const enabled = state.setting('welcome-enabled', 'true') === 'true';
-    return { content: `New-member welcome DMs are ${enabled ? 'on' : 'off'}.`,
+    return { embeds: [{ color: 0xC5A15A, author: { name: 'Aurum Desk  /  Community' }, title: 'Member welcome',
+      description: 'Preview the card a new member receives or edit its introduction.',
+      fields: [{ name: 'Welcome DMs', value: enabled ? 'On' : 'Paused', inline: true },
+        { name: 'Join notifications', value: 'Sent privately to the owner', inline: true }] }],
       components: [row(button('welcome-edit', 'Edit welcome'), button('welcome-preview', 'Send me a preview'),
         button('welcome-on', 'Enable welcomes', 3), button('welcome-off', 'Pause welcomes', 4))] };
   }
@@ -69,8 +80,8 @@ export function installOwnerControls(client, { guild, state, tickets, publisher,
     return `New-member welcome DMs are now ${enabled ? 'on' : 'off'}. Owner join notices stay active.`;
   }
   async function preview(key) {
-    const { text, approvalId } = await publisher.preview(OWNER_ID, key);
-    return { content: text, components: [row(button(`enable:${key}:${approvalId}`, 'Enable future articles here', 3),
+    const { message, approvalId } = await publisher.preview(OWNER_ID, key);
+    return { ...message, components: [...(message.components ?? []), row(button(`enable:${key}:${approvalId}`, 'Enable future articles here', 3),
       button('pause:' + key, 'Pause this destination', 4))] };
   }
   async function onMessage(message) {
@@ -83,7 +94,8 @@ export function installOwnerControls(client, { guild, state, tickets, publisher,
     const send = payload => message.author.send({ ...(typeof payload === 'string' ? { content: payload } : payload), ...silent });
     try {
       switch (command) {
-        case '!ping': return await send('Aurum Desk is connected.');
+        case '!ping': return await send({ embeds: [{ title: 'Aurum Desk is connected',
+          color: 0xC5A15A, footer: { text: 'Discord gateway  •  v' + release.version } }] });
         case '!help': return await send(help);
         case '!fix-bot-nickname': return await send(await fixBotNickname(client, guild));
         case '!setup-news': return await send(newsMenu());
@@ -95,7 +107,8 @@ export function installOwnerControls(client, { guild, state, tickets, publisher,
           return await send(!key || key === 'all' || targetKeys.includes(key) ? publisher.pause(OWNER_ID, key || 'all')
             : 'Use !news-pause with a destination or all.');
         case '!setup-welcome': return await send(welcomeMenu());
-        case '!sendwelcome': return await send(currentWelcome());
+        case '!sendwelcome': return await send(previewWelcome());
+        case '!ticket-preview': return await send(ticketPreviewMenu());
         case '!activate': return await send(setWelcome(true));
         case '!pause-welcome': return await send(setWelcome(false));
         case '!send-verify': {
@@ -136,11 +149,17 @@ export function installOwnerControls(client, { guild, state, tickets, publisher,
             required: true, max_length: 2000, value: currentWelcome() })] });
       }
       await i.deferReply();
+      if (action === 'ticket-demo' && Object.hasOwn(ticketTopics, key)) {
+        const example = ticketIntroCard(key, prefix + 'ticket-back');
+        return await reply({ ...example, content: 'Private preview · Ticket opening message',
+          components: [row(button('ticket-back', 'Back to ticket topics'))] });
+      }
+      if (action === 'ticket-back') return await reply(ticketPreviewMenu());
       if (action === 'preview' && targetKeys.includes(key)) return await reply(await preview(key));
       if (action === 'enable' && targetKeys.includes(key)) return await reply(await publisher.enable(OWNER_ID, key, approvalId));
       if (action === 'pause' && (key === 'all' || targetKeys.includes(key))) return await reply(publisher.pause(OWNER_ID, key));
       if (action === 'status') return await reply(publisher.status(OWNER_ID));
-      if (action === 'welcome-preview') return await reply(currentWelcome());
+      if (action === 'welcome-preview') return await reply(previewWelcome());
       if (action === 'welcome-on' || action === 'welcome-off') return await reply(setWelcome(action === 'welcome-on'));
       return await reply('Use !help to open the current owner controls.');
     } catch (error) {

@@ -4,7 +4,8 @@ import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { ChannelType, PermissionFlagsBits as P } from 'discord.js';
 import { GUILD_ID, OWNER_ID, assertServer, channelId, snowflake } from './onboarding.mjs';
-import { formatExcerpt, readSiteFeed, siteOrigin, verifyPublicArticle } from './site-posts.mjs';
+import { discordArticle, discordArticlePreview, formatExcerpt, readSiteFeed,
+  sampleArticle, siteOrigin, telegramArticle, verifyPublicArticle } from './site-posts.mjs';
 
 const telegramChannel = '@AurumDeskk';
 const fiveMinutes = 5 * 60 * 1000;
@@ -25,18 +26,6 @@ function requireTarget(key) {
   return PUBLISH_TARGETS[key];
 }
 
-function sample(target) {
-  const lines = target.kind === 'news' ? [
-    'Gold news • Historical example from 29 October 2025',
-    'Fed cuts rates by a quarter point',
-    'The Fed lowered its target range to 3.75–4.00%. For gold, watch whether Treasury yields and the dollar fall after the announcement. A stronger dollar would weaken the case for an upside move.',
-  ] : [
-    'Gold market plan • Calendar checked on 21 November 2026',
-    'Two US releases to watch on 25 November',
-    'The BEA schedules its second estimate of Q3 GDP and its October income and spending report for 14:30 Ljubljana time. The latter includes PCE inflation. Read both releases before attributing the first move in gold to either one.',
-  ];
-  return ['FORMAT SAMPLE ONLY', ...lines, '[Publication time in UTC]\n[Verified public article link]'].join('\n\n');
-}
 
 async function destination(options, target, boundId) {
   if (target.channelId) {
@@ -47,11 +36,11 @@ async function destination(options, target, boundId) {
     const channel = await guild.channels.fetch(target.channelId, { force: true });
     const me = await guild.members.fetchMe();
     if (channel?.id !== target.channelId || channel.guildId !== GUILD_ID || channel.type !== ChannelType.GuildText
-      || !channel.permissionsFor(me)?.has([P.ViewChannel, P.SendMessages])) {
+      || !channel.permissionsFor(me)?.has([P.ViewChannel, P.SendMessages, P.EmbedLinks])) {
       throw new Error('Verify the configured Discord room and the bot’s channel permissions.');
     }
-    return { id: target.channelId, send: async (content, nonce) => {
-      const message = await channel.send({ content, allowedMentions: { parse: [], repliedUser: false },
+    return { id: target.channelId, send: async (article, nonce) => {
+      const message = await channel.send({ ...discordArticle(article),
         nonce, enforceNonce: true });
       if (message?.channelId !== target.channelId || !snowflake(message.id)) {
         throw new Error('Discord delivery unconfirmed.');
@@ -84,8 +73,8 @@ async function destination(options, target, boundId) {
   if (membership.user?.id !== bot.id || membership.status !== 'administrator' || membership.can_post_messages !== true) {
     throw new Error('The Telegram bot needs permission to post in @AurumDeskk.');
   }
-  return { id, send: async content => {
-    const message = await call('sendMessage', { chat_id: id, text: content });
+  return { id, send: async article => {
+    const message = await call('sendMessage', { chat_id: id, ...telegramArticle(article) });
     if (String(message.chat?.id) !== id || !Number.isSafeInteger(message.message_id)) {
       throw new Error('Telegram delivery unconfirmed.');
     }
@@ -111,6 +100,17 @@ export function createPublisher(input) {
     if (identity.application !== options.applicationId || identity.origin !== origin) {
       throw new Error('Publisher records belong to a different application or website.');
     }
+    // Material presentation changes need a fresh owner preview. Keep history and bound identities.
+    db.exec('BEGIN IMMEDIATE');
+    try {
+      const { user_version: version } = db.prepare('PRAGMA user_version').get();
+      if (version > 1) throw new Error('This publisher state requires a newer bot.');
+      if (version === 0) {
+        db.exec(`UPDATE targets SET enabled=0, generation=generation+1, approval=NULL,
+          expires=0, health='paused'; PRAGMA user_version=1;`);
+      }
+      db.exec('COMMIT');
+    } catch (error) { db.exec('ROLLBACK'); throw error; }
     const add = db.prepare('INSERT OR IGNORE INTO targets(name) VALUES (?)');
     for (const key of Object.keys(PUBLISH_TARGETS)) add.run(key);
   } catch (error) {
@@ -128,21 +128,21 @@ export function createPublisher(input) {
   async function preview(owner, key) {
     open(); requireOwner(owner);
     const target = requireTarget(key);
-    let content;
+    let article;
     try {
       const posts = await feed();
-      const article = posts.findLast(post => post.kind === target.kind && post.published <= options.now());
-      if (article) {
-        await verifyPublicArticle(options.fetchImpl, article);
-        content = formatExcerpt(article);
-      }
+      const latest = posts.findLast(post => post.kind === target.kind && post.published <= options.now());
+      if (latest) article = await verifyPublicArticle(options.fetchImpl, latest);
     } catch { /* The owner can inspect the format while the public site is unavailable. */ }
     open();
     const approvalId = randomBytes(10).toString('hex');
     db.prepare('UPDATE targets SET approval=?, expires=? WHERE name=?')
       .run(approvalId, options.now() + 15 * 60000, key);
-    const body = content || sample(target);
-    return { text: `${target.label}\n\n${body}\n\nEnable to automatically share future verified ${target.kind} articles in this destination. Existing articles are skipped.`, approvalId };
+    const post = article ?? sampleArticle(target.kind);
+    const heading = 'Private preview · ' + target.label + (post.historical ? ' · Historical example' : '');
+    const platform = key.startsWith('discord-') ? 'discord' : 'telegram';
+    return { text: heading + '\n\n' + formatExcerpt(post),
+      message: { content: heading, ...discordArticlePreview(post, platform) }, approvalId };
   }
 
   async function enable(owner, key, approvalId) {
@@ -211,7 +211,7 @@ export function createPublisher(input) {
         if (post.kind !== target.kind || post.published <= row.since || post.published > now
           || now - post.published > freshness || seen.get(key, post.id)) continue;
         if (!verified.has(post.id)) {
-          verified.set(post.id, await verifyPublicArticle(options.fetchImpl, post).then(() => true, () => false));
+          verified.set(post.id, await verifyPublicArticle(options.fetchImpl, post).catch(() => null));
         }
         if (!verified.get(post.id)) {
           health.run('waiting for verified public article', key, row.generation);
@@ -229,7 +229,7 @@ export function createPublisher(input) {
         if (!claimed) continue;
         const nonce = createHash('sha256').update(key + post.id).digest('hex').slice(0, 24);
         try {
-          await delivery.send(formatExcerpt(post), nonce);
+          await delivery.send(verified.get(post.id), nonce);
           db.prepare("UPDATE deliveries SET outcome='sent' WHERE target=? AND post=?").run(key, post.id);
           health.run('latest article sent', key, row.generation);
         } catch { health.run('delivery unconfirmed; inspect the destination', key, row.generation); }

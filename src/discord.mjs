@@ -5,18 +5,18 @@ import {
   GUILD_ID, OWNER_ID, START_ID, TRADING_CHANNELS, bindTradingChannels, channelPins,
   assertEligibleMember, assertServer, observeJoin, openOnboardingState, rulesClickAllowed, snowflake,
 } from './onboarding.mjs';
+import { channelCard, joinCard, rulesCard, welcomeCard } from './community-cards.mjs';
 
 const RULES = 'aurum-rules-v1';
 const CONTROL = 'aurum-owner-v1';
 export const AURUM_BOT_ID = '1535349548866600960';
 const silent = { allowedMentions: { parse: [], repliedUser: false } };
-export const welcomeText = () => `Welcome to Aurum Desk! We study gold (XAU/USD), share trade reviews and learn how risk changes a trade. Start here for the community guide: https://discord.com/channels/${GUILD_ID}${START_ID ? '/' + START_ID : ''}`;
-const rulesText = [
-  '**Welcome to Aurum Desk**',
-  'We study gold together. Explain your reasoning, include the timeframe on charts, and label practice trades.',
-  'Be respectful. Keep promotions, unsolicited DMs, requests for account access and promises of returns out of the community.',
-  'Select **Accept rules** to get the Member role and join the trading discussion.',
-].join('\n\n');
+export function memberWelcome(state, memberId, ticketsAvailable = false) {
+  return welcomeCard({
+    memberId, startId: START_ID, introduction: state.setting('welcome-text'),
+    rulesAvailable: snowflake(state.panel?.()), ticketsAvailable,
+  });
+}
 const button = (custom_id, label, style = 2) => ({ type: 2, style, custom_id, label });
 const row = (...components) => ({ type: 1, components });
 const rulesRow = row(button(RULES, 'Accept rules', 3), button(CONTROL, 'Owner tools'));
@@ -144,7 +144,7 @@ async function connect(options, listen) {
 }
 
 function ownedRulesMessage(message, client) {
-  return message.channelId === START_ID && message.author?.id === client.user.id
+  return message.channelId === START_ID && !message.webhookId && message.author?.id === client.user.id
     && message.components.some(actionRow => actionRow.components.some(component => component.customId === RULES));
 }
 
@@ -153,25 +153,32 @@ async function ensureRulesMessage(client, state, guild) {
   if (channel?.id !== START_ID || channel.type !== ChannelType.GuildText || channel.guildId !== GUILD_ID) {
     throw new Error('Rules channel mismatch.');
   }
+  const payload = channelCard(channel, client.user.id, rulesCard([rulesRow]));
+  // Older installations pinned a text-only panel. Refresh it at the same message ID.
+  async function reuse(existing) {
+    if ((existing.content || '') !== (payload.content || '') || existing.embeds?.[0]?.title !== payload.embeds[0]?.title) {
+      await existing.edit({ ...payload, content: payload.content || null });
+    }
+    state.setPanel(existing.id);
+    return { messageId: existing.id, created: false };
+  }
   const previous = state.panel();
   if (snowflake(previous)) {
     const existing = await channel.messages.fetch(previous);
     if (!ownedRulesMessage(existing, client)) throw new Error('Registered rules panel could not be verified.');
-    return { messageId: previous, created: false };
+    return reuse(existing);
   }
   const history = await channel.messages.fetch({ limit: 100 });
   const existing = history.filter(message => ownedRulesMessage(message, client));
   if (existing.size > 1) throw new Error('There are multiple Aurum rules messages. Resolve the duplicate before setup.');
   if (existing.size === 1) {
-    const messageId = existing.first().id;
-    state.setPanel(messageId);
-    return { messageId, created: false };
+    return reuse(existing.first());
   }
   if (previous === 'unconfirmed') throw new Error('Earlier panel delivery is unconfirmed. Inspect the channel before retrying.');
   state.setPanel('unconfirmed');
   let message;
   try {
-    message = await channel.send({ content: rulesText, components: [rulesRow], ...silent });
+    message = await channel.send({ ...payload, ...silent });
   } catch (error) {
     if ([400, 401, 403, 404].includes(error?.status)) state.setPanel('rejected');
     throw error;
@@ -258,7 +265,9 @@ export async function handleRulesButton(interaction, options, state, client) {
   } else if (id === CONTROL + '-pause' && options.pausePosting) {
     text = (await options.pausePosting()) || 'Posting paused.';
   } else if ([CONTROL + '-telegram', CONTROL + '-discord'].includes(id)) {
-    text = (await options.getDraftPreview?.(id.slice(CONTROL.length + 1))) || 'No reviewed draft is available.';
+    const preview = await options.getDraftPreview?.(id.slice(CONTROL.length + 1));
+    if (preview && typeof preview === 'object') return interaction.editReply({ ...preview, ...silent });
+    text = preview || 'No reviewed draft is available.';
   } else {
     text = 'Unknown owner action.';
   }
@@ -275,12 +284,11 @@ export async function startDiscord(options) {
     }, () => console.error('Unable to set the Aurum Desk activity.')));
     client.on(Events.GuildMemberAdd, member => afterVerification(state => observeJoin(state, member, {
       welcome: state.setting('welcome-enabled','true') === 'true'
-        ? () => member.send({ content: state.setting('welcome-text', welcomeText()), ...silent }) : null,
+        ? () => member.send({ ...memberWelcome(state, member.id, options.hasTicketPanel?.()), ...silent }) : null,
       notifyOwner: async () => {
         const owner = await member.guild.fetchOwner();
         if (owner.id !== OWNER_ID) throw new Error('Owner identity changed.');
-        const date = new Date(member.joinedTimestamp).toISOString();
-        return owner.send({ content: `New Aurum Desk member: <@${member.id}> (ID ${member.id}). Joined ${date}.`, ...silent });
+        return owner.send({ ...joinCard(member), ...silent });
       },
     }), () => console.error('Unable to record the Discord join event.')));
     client.on(Events.InteractionCreate, interaction => afterVerification(

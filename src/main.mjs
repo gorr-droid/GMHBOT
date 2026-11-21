@@ -10,7 +10,7 @@ async function main(command) {
     return;
   }
 
-  const { startDiscord, installRulesPanel, createRulesPanelInstaller } = await import('./discord.mjs');
+  const { AURUM_BOT_ID, startDiscord, installRulesPanel, createRulesPanelInstaller } = await import('./discord.mjs');
   if (command === 'install-rules') {
     if (!options.memberRoleId) throw new Error('Set DISCORD_MEMBER_ROLE_ID before installing the rules panel.');
     const panel = await installRulesPanel(options);
@@ -18,7 +18,6 @@ async function main(command) {
     return;
   }
 
-  const { renderGoldDrafts } = await import('./gold-drafts.mjs');
   const { installTicketHandlers } = await import('./tickets.mjs');
   const { createPublisher } = await import('./publisher.mjs');
   const { installOwnerControls } = await import('./owner-controls.mjs');
@@ -26,6 +25,7 @@ async function main(command) {
   let publisher, tickets, controls;
   const client = await startDiscord({
     ...options,
+    hasTicketPanel: () => tickets?.hasPanel(),
     getStatus: () => publisher?.status(OWNER_ID),
     pausePosting: () => publisher?.pause(OWNER_ID),
     installHandlers: async (connectedClient, {guild, state}) => {
@@ -34,13 +34,18 @@ async function main(command) {
         dataDir:options.dataDir, applicationId:connectedClient.user.id,
         getClient:()=>connectedClient, telegramToken:options.telegramToken,
       });
+      // On upgrade, refresh only an existing, verified ticket panel in the bound start channel.
+      // A missing panel is installed only when its owner uses the original setup command.
+      if (connectedClient.user.id === AURUM_BOT_ID) {
+        await tickets.refreshExistingPanel().catch(() => console.warn('Ticket panel refresh could not be confirmed; use !setup-tickets to retry.'));
+      }
       controls = installOwnerControls(connectedClient, {guild, state, tickets, publisher,
         installRules: createRulesPanelInstaller(connectedClient, state, options)});
       publisher.start();
     },
-    getDraftPreview: (platform) => {
+    getDraftPreview: async (platform) => {
       if (!['telegram', 'discord'].includes(platform)) throw new Error('Unknown preview platform.');
-      return renderGoldDrafts()[platform];
+      return (await publisher.preview(OWNER_ID, platform + '-plan')).message;
     }
   });
   console.log('Connected to Aurum Desk. Listening for new members.');

@@ -8,6 +8,7 @@ import test from 'node:test';
 import { ChannelType, Events, MessageFlags, PermissionFlagsBits as P } from 'discord.js';
 import { GUILD_ID, OWNER_ID, START_ID } from '../src/onboarding.mjs';
 import { installTicketHandlers } from '../src/tickets.mjs';
+import { ticketPanelCard } from '../src/community-cards.mjs';
 
 bindFixtureChannels();
 
@@ -31,6 +32,7 @@ function fixture(t) {
     const messages = new Map();
     const channel = {
       id: roomId, type: ChannelType.GuildText, guildId: GUILD_ID, parentId: null, topic: options.topic,
+      permissionsFor: user => ({ has: mask => user === BOT && mask === P.EmbedLinks }),
       permissionOverwrites: {
         cache: capture(options.permissionOverwrites ?? []),
         async set(overwrites) { this.cache = capture(overwrites); },
@@ -41,9 +43,13 @@ function fixture(t) {
         throw Object.assign(new Error('Unknown message'), { code: 10008 });
       } },
       async send(payload) {
-        const message = { id: id(), author: { id: BOT }, content: payload.content, components: payload.components.map(
+        const message = { id: id(), author: { id: BOT }, content: payload.content, embeds: payload.embeds, components: payload.components.map(
           row => ({ components: row.components.map(b => ({ customId: b.custom_id })) }),
-        ) };
+        ), async edit(data) {
+          this.content = data.content;
+          this.embeds = data.embeds;
+          this.edits = (this.edits || 0) + 1;
+        } };
         messages.set(message.id, message);
         return message;
       },
@@ -89,6 +95,7 @@ function fixture(t) {
   const ask = (topic = 'chart', user = MEMBER) => press('aurum-ticket-open:' + topic, start, first(start), user);
   return {
     dir, guild, channels, start, legacy, created, setup, press, ask, first,
+    refresh: () => handler.refreshExistingPanel(), hasPanel: () => handler.hasPanel(),
     async restart() { await handler.close(); startHandlers(); },
     tickets() { return [...channels.values()].filter(c => c.topic?.startsWith('Aurum Desk private ticket ')); },
   };
@@ -110,7 +117,7 @@ test('owner setup is explicit and repeatable; an accepted request creates one pr
   assert.deepEqual([...acl.keys()].sort(), [GUILD_ID, MEMBER, BOT, OWNER_ID].sort());
   assert.equal(f.created[0].parent, undefined);
   assert.equal(channel.sent.size, 1);
-  assert.match(f.first(channel).content, /Chart review/);
+  assert.match(f.first(channel).embeds[0].title, /Chart review/);
   assert.equal(f.legacy.sent.size, 0);
 });
 
@@ -143,8 +150,72 @@ test('button trust, close authorization, durable archive and a fresh ticket afte
   assert.equal(f.channels.get(channel.id), channel);
   await f.ask('community');
   assert.equal(f.tickets().length, 2);
-  assert.match(f.first(f.tickets()[1]).content, /Community \/ VIP access/);
+  assert.match(f.first(f.tickets()[1]).embeds[0].title, /Community \/ VIP access/);
   assert.equal((await f.press(close, channel, intro)).deferred, undefined);
+});
+
+test('owner setup refreshes its own legacy panel in place and repeat setup keeps the same message', async t => {
+  const f = fixture(t);
+  await f.setup();
+  const panel = f.first(f.start);
+  panel.content = 'Aurum Desk support';
+  panel.embeds = [];
+  await f.setup();
+  assert.equal(f.first(f.start).id, panel.id);
+  assert.deepEqual(panel.embeds, ticketPanelCard().embeds);
+  assert.equal(panel.content, null);
+  await f.setup();
+  assert.equal(panel.edits, 1);
+  assert.equal(f.start.sent.size, 1);
+});
+
+test('startup refresh discovers only the existing bot-owned panel and never posts to create a missing one', async t => {
+  const f = fixture(t);
+  await f.refresh();
+  assert.equal(f.start.sent.size, 0);
+  assert.equal(f.hasPanel(), false);
+  const legacy = { content: 'Choose a support topic.', components: ticketPanelCard().components };
+  const foreign = await f.start.send(legacy);
+  foreign.author = { id: OTHER };
+  const otherRoom = await f.legacy.send(legacy);
+  await f.refresh();
+  assert.equal(f.start.sent.size, 1);
+  assert.equal(f.hasPanel(), false);
+  const original = await f.start.send(legacy);
+  await f.refresh();
+  assert.equal(f.start.sent.size, 2);
+  assert.equal(f.hasPanel(), true);
+  assert.deepEqual(original.embeds, ticketPanelCard().embeds);
+  assert.equal(foreign.content, legacy.content);
+  assert.equal(otherRoom.content, legacy.content);
+  original.embeds = [];
+  original.content = legacy.content;
+  await f.restart();
+  await f.refresh();
+  assert.equal(original.edits, 2);
+  assert.equal(f.created.length, 0);
+});
+
+test('startup refresh leaves ambiguous panels untouched', async t => {
+  const f = fixture(t);
+  const legacy = { content: 'Choose a support topic.', components: ticketPanelCard().components };
+  const first = await f.start.send(legacy);
+  const second = await f.start.send(legacy);
+  await assert.rejects(f.refresh(), /More than one/);
+  assert.equal(f.hasPanel(), false);
+  assert.deepEqual([first.edits, second.edits], [undefined, undefined]);
+  assert.equal(f.start.sent.size, 2);
+});
+
+test('a channel without Embed Links receives the same topics, visibility notice and working buttons', async t => {
+  const f = fixture(t);
+  f.start.permissionsFor = () => ({ has: () => false });
+  await f.setup();
+  const panel = f.first(f.start);
+  assert.equal(panel.embeds.length, 0);
+  assert.match(panel.content, /VIP group/);
+  assert.match(panel.content, /administrators/);
+  assert.match((await f.ask('community')).text, /Your ticket is ready/);
 });
 
 test('recovers a created channel after a lost Discord response; never opens a duplicate', async t => {

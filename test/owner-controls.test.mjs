@@ -18,7 +18,9 @@ function setup(t) {
   const publisher = {
     preview: async (owner, target) => {
       calls.push(['preview', owner, target]);
-      return { text: 'Exact private excerpt with its public article link', approvalId: '0123456789abcdef0123' };
+      return { message: { content: 'Private preview', embeds: [{ title: 'Gold market brief' }],
+        components: [{ type: 1, components: [{ type: 2, style: 5, label: 'Read analysis', url: 'https://gmh-shop.com/aurum' }] }] },
+        approvalId: '0123456789abcdef0123' };
     },
     enable: async (...args) => { calls.push(['enable', ...args]); return 'Enabled'; },
     status: () => 'paused', pause: () => 'Paused'
@@ -83,9 +85,10 @@ test('news menu and enable command only preview, then a private confirmation pas
   await h.press(buttons[0].custom_id);
   await h.message('!news-enable discord-plan');
   const confirmation = h.privateReplies.at(-1);
-  assert.match(confirmation.content, /Exact private excerpt/);
+  assert.equal(confirmation.embeds[0].title, 'Gold market brief');
+  assert.equal(confirmation.components[0].components[0].style, 5);
   assert.equal(h.calls.some(([action]) => action === 'enable'), false);
-  await h.press(confirmation.components[0].components[0].custom_id);
+  await h.press(confirmation.components.at(-1).components[0].custom_id);
   assert.deepEqual(h.calls.at(-1), ['enable', OWNER_ID, 'discord-plan', '0123456789abcdef0123']);
   assert.deepEqual(h.publicReplies, []);
 });
@@ -98,12 +101,39 @@ test('welcome is stored, previewed to the owner and toggled independently of joi
   await h.press(shown.modal.custom_id, { isButton: () => false, isModalSubmit: () => true,
     fields: { getTextInputValue: () => 'Welcome to the gold desk.' } });
   await h.message('!sendwelcome');
-  assert.equal(h.privateReplies.at(-1).content, 'Welcome to the gold desk.');
+  const card = h.privateReplies.at(-1);
+  assert.match(card.embeds[0].description, /Welcome to the gold desk\./);
+  assert.ok(card.files.length > 0);
+  await h.press('aurum-private:welcome-preview');
+  assert.deepEqual(h.privateReplies.at(-1), card);
   await h.message('!activate');
   assert.equal(h.settings.get('welcome-enabled'), 'true');
   await h.message('!pause-welcome');
   assert.equal(h.settings.get('welcome-enabled'), 'false');
   assert.deepEqual([...h.settings.keys()].sort(), ['welcome-enabled', 'welcome-text']);
+});
+
+test('the ticket preview is private and does not install a panel', async t => {
+  const h = setup(t);
+  await h.message('!ticket-preview');
+  const preview = h.privateReplies.at(-1);
+  assert.ok(preview.embeds[0].title);
+  assert.equal(preview.components[0].components.length, 3);
+  await h.press(preview.components[0].components[1].custom_id);
+  assert.match(h.privateReplies.at(-1).embeds[0].title, /Chart review/);
+  await h.press(h.privateReplies.at(-1).components[0].components[0].custom_id);
+  assert.deepEqual(h.privateReplies.at(-1), preview);
+  assert.deepEqual(h.calls, []);
+  assert.deepEqual(h.publicReplies, []);
+});
+
+test('ping identifies the running release in the owner DM', async t => {
+  const h = setup(t);
+  await h.message('!ping');
+  const embed = h.privateReplies.at(-1).embeds[0];
+  assert.match(embed.title, /connected/);
+  assert.match(embed.footer.text, /v2\.1\.0/);
+  assert.deepEqual(h.publicReplies, []);
 });
 
 test('failed private delivery produces a generic public instruction without revealing approvals', async t => {

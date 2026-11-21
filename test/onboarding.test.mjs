@@ -157,13 +157,14 @@ test('running rules installation discovers one ordinary Member, coalesces concur
     channels: { fetch: async id => id ? c.channels.get(id) : c.channels } };
   const client = { user: me, guilds: { fetch: async () => server } };
   Object.assign(start, { type: 0, guildId: GUILD_ID,
+    permissionsFor: () => new PermissionsBitField([P.ViewChannel, P.ReadMessageHistory, P.EmbedLinks]),
     messages: { fetch: async query => typeof query === 'string' ? history.get(query) : history },
     send: async payload => {
       assert.equal(history.size, 0, 'A second panel was attempted');
-      assert.doesNotMatch(payload.content, /https?:\/\//);
-      const message = { id: panelId, channelId: START_ID, author: me, components: [
+      assert.ok(payload.embeds[0].title);
+      const message = { id: panelId, channelId: START_ID, author: me, embeds: payload.embeds, components: [
         { components: payload.components[0].components.map(item => ({ customId: item.custom_id })) }
-      ] };
+      ], async edit(update) { this.content = update.content; this.embeds = update.embeds; return this; } };
       history.set(panelId, message);
       return message;
     }
@@ -178,7 +179,12 @@ test('running rules installation discovers one ordinary Member, coalesces concur
   await Promise.all([install(OWNER_ID), install(OWNER_ID)]);
   assert.equal(history.size, 1);
   assert.equal(store.state.setting('member-role-id'), roleId);
+  history.get(panelId).content = 'Old rules';
+  history.get(panelId).embeds = [];
   assert.equal((await install(OWNER_ID)).created, false);
+  assert.equal(history.get(panelId).content, null);
+  assert.ok(history.get(panelId).embeds[0].title);
+  assert.equal(history.size, 1);
   store.reopen();
   const interaction = { isButton: () => true, guildId: GUILD_ID, channelId: START_ID, guild: server,
     customId: 'aurum-rules-v1', message: history.get(panelId), user: { id: humanId },

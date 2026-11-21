@@ -4,18 +4,12 @@ import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { ChannelType, Events, MessageFlags, OverwriteType, PermissionFlagsBits as P } from 'discord.js';
 import { assertServer, GUILD_ID, OWNER_ID, snowflake, START_ID } from './onboarding.mjs';
+import { channelCard, ticketIntroCard, ticketPanelCard, ticketTopics } from './community-cards.mjs';
 
-const topics = new Map([
-  ['education', 'Gold education'],
-  ['chart', 'Chart review'],
-  ['community', 'Community / VIP access'],
-]);
 const openPrefix = 'aurum-ticket-open:';
 const closePrefix = 'aurum-ticket-close:';
 const silent = { allowedMentions: { parse: [], repliedUser: false } };
 const access = P.ViewChannel | P.SendMessages | P.ReadMessageHistory | P.AttachFiles;
-const button = (id, label, style) => ({ type: 2, custom_id: id, label, style });
-const row = (...components) => [{ type: 1, components }];
 const token = () => randomBytes(12).toString('hex');
 const ticketTopic = key => 'Aurum Desk private ticket ' + key;
 const setupHint = 'The ticket action could not be confirmed. The server owner can check the channel and the bot’s permissions.';
@@ -53,6 +47,17 @@ function noDelivery(error) {
   return [400, 401, 403, 404, 429].includes(error?.status);
 }
 
+async function refreshCard(message, card) {
+  const current = message.embeds?.[0];
+  const next = card.embeds[0];
+  const sameFields = (current?.fields ?? []).every((field, index) =>
+    field.name === next?.fields[index]?.name && field.value === next.fields[index].value);
+  if ((message.content || '') === (card.content || '') && current?.title === next?.title
+      && current?.description === next?.description && current?.footer?.text === next?.footer?.text
+      && (current?.fields?.length ?? 0) === (next?.fields?.length ?? 0) && sameFields) return;
+  await message.edit({ ...card, content: card.content || null });
+}
+
 export function installTicketHandlers(client, { guild, dataDir }) {
   assertServer(guild);
   const bot = client.user?.id;
@@ -83,16 +88,19 @@ export function installTicketHandlers(client, { guild, dataDir }) {
     return task;
   }
 
-  async function panel() {
+  async function panel({ createIfMissing = true } = {}) {
+    if (!snowflake(START_ID)) throw new Error('Cannot verify the trading start channel.');
     const channel = await guild.channels.fetch(START_ID, { force: true });
     if (channel?.guildId !== GUILD_ID || channel.type !== ChannelType.GuildText || channel.id !== START_ID) {
       throw new Error('Cannot verify the trading start channel.');
     }
+    const card = channelCard(channel, bot, ticketPanelCard());
     let record = getPanel.get();
     if (record?.message) {
       try {
         const existing = await channel.messages.fetch(record.message);
         if (!hasButton(existing, openPrefix + 'education', bot)) throw new Error('Invalid ticket panel.');
+        await refreshCard(existing, card);
         return 'The ticket panel is already in <#' + START_ID + '>.';
       } catch (error) {
         if (error.code !== 10008) throw error;
@@ -104,17 +112,18 @@ export function installTicketHandlers(client, { guild, dataDir }) {
     const recent = await channel.messages.fetch({ limit: 100 });
     const matches = [...recent.values()].filter(message => hasButton(message, openPrefix + 'education', bot));
     if (matches.length > 1) throw new Error('More than one ticket panel was found.');
-    if (matches.length === 0 && record) throw new Error('Earlier ticket panel delivery is unconfirmed.');
+    if (!matches.length) {
+      if (record) throw new Error('Earlier ticket panel delivery is unconfirmed.');
+      if (!createIfMissing) return;
+    }
     const nonce = record?.nonce ?? token();
     db.prepare('INSERT OR IGNORE INTO panel VALUES (1, ?, NULL)').run(nonce);
     let message = matches[0];
-    if (!message) {
+    if (message) {
+      await refreshCard(message, card);
+    } else {
       try {
-        message = await channel.send({
-          content: '**Aurum Desk support**\nChoose a topic to open a private ticket with the server owner. Server administrators can also access tickets.',
-          components: row(...[...topics].map(([id, label]) => button(openPrefix + id, label, 1))),
-          nonce, enforceNonce: true, ...silent,
-        });
+        message = await channel.send({ ...card, nonce, enforceNonce: true });
       } catch (error) {
         if (noDelivery(error)) db.prepare('DELETE FROM panel WHERE singleton=1').run();
         throw error;
@@ -170,11 +179,13 @@ export function installTicketHandlers(client, { guild, dataDir }) {
     checkPrivacy(channel, bot, requester);
     if (!record.channel) db.prepare('UPDATE tickets SET channel=? WHERE key=?').run(channel.id, record.key);
     const closeId = closePrefix + record.key;
+    const card = channelCard(channel, bot, ticketIntroCard(record.topic, closeId));
     let intro = record.intro;
     if (intro) {
       try {
         const message = await channel.messages.fetch(intro);
         if (!hasButton(message, closeId, bot)) throw new Error('Cannot verify the ticket controls.');
+        await refreshCard(message, card);
       } catch (error) {
         if (error.code !== 10008) throw error;
         intro = undefined;
@@ -183,12 +194,8 @@ export function installTicketHandlers(client, { guild, dataDir }) {
     if (!intro) {
       const history = await channel.messages.fetch({ limit: 100 });
       const prior = [...history.values()].find(msg => hasButton(msg, closeId, bot));
-      const message = prior ?? await channel.send({
-        content: '**' + topics.get(record.topic) + '**\n' + (record.topic === 'chart'
-          ? 'Attach your chart and include the instrument, timeframe and your reasoning.'
-          : 'Share your question here so the server owner can help.') + ' You or the server owner can close this ticket.',
-        components: row(button(closeId, 'Close ticket', 4)), nonce: record.key, enforceNonce: true, ...silent,
-      });
+      if (prior) await refreshCard(prior, card);
+      const message = prior ?? await channel.send({ ...card, nonce: record.key, enforceNonce: true });
       db.prepare('UPDATE tickets SET intro=? WHERE key=?').run(message.id, record.key);
     }
     return 'Your ticket is ready in <#' + channel.id + '>.';
@@ -201,7 +208,7 @@ export function installTicketHandlers(client, { guild, dataDir }) {
     const id = i.customId;
     if (id.startsWith(openPrefix)) {
       const selected = id.slice(openPrefix.length);
-      if (!topics.has(selected) || i.channelId !== START_ID || i.message.id !== getPanel.get()?.message) return;
+      if (!Object.hasOwn(ticketTopics, selected) || i.channelId !== START_ID || i.message.id !== getPanel.get()?.message) return;
       await i.deferReply({ flags: MessageFlags.Ephemeral });
       const reply = await enqueue(i.user.id, () => open(i.user.id, selected));
       if (reply) await i.editReply(reply);
@@ -217,7 +224,7 @@ export function installTicketHandlers(client, { guild, dataDir }) {
       await enqueue(record.requester, async () => {
         if (getTicket.get(record.requester)?.key === key) await finishClose(record);
       });
-      await i.editReply('Ticket closed. The conversation has been archived.');
+      await i.editReply('🔒 Ticket closed and archived. You can open a new conversation from the ticket panel.');
     }
   }
 
@@ -229,6 +236,8 @@ export function installTicketHandlers(client, { guild, dataDir }) {
   }
   client.on(Events.InteractionCreate, listener);
   return {
+    hasPanel: () => snowflake(getPanel.get()?.message),
+    refreshExistingPanel: () => enqueue('panel', () => panel({ createIfMissing: false })),
     async handleOwnerCommand(command, message) {
       if (String(command).replace(/^!/, '').toLowerCase() !== 'setup-tickets') return false;
       if (message.guildId !== GUILD_ID || message.author?.id !== OWNER_ID || message.author.bot || message.webhookId) return true;
